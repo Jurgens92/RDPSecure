@@ -28,33 +28,49 @@
         /// </summary>
         private void InitializeComponent()
         {
+            components = new System.ComponentModel.Container();
             tabControlSettings = new TabControl();
             tabProtection = new TabPage();
-            tabIPManagement = new TabPage();
-            tabSystem = new TabPage();
+            gbBanDuration = new GroupBox();
+            chkBurstProtection = new CheckBox();
+            lblPublicIPBan = new Label();
+            nudPublicIPBanDays = new NumericUpDown();
+            lblPrivateIPBan = new Label();
+            nudPrivateIPBanHours = new NumericUpDown();
             groupBox1 = new GroupBox();
-            nudMaxAttempts = new NumericUpDown();
-            lblMaxAttempts = new Label();
-            nudTimeWindow = new NumericUpDown();
             lblTimeWindow = new Label();
-            panelIPControls = new Panel();
-            txtIPAddress = new TextBox();
-            btnAddWhitelist = new Button();
+            nudTimeWindow = new NumericUpDown();
+            lblMaxAttempts = new Label();
+            nudMaxAttempts = new NumericUpDown();
+            tabIPManagement = new TabPage();
             panelIPGrid = new Panel();
             gridIPList = new DataGridView();
             colIP = new DataGridViewTextBoxColumn();
             colType = new DataGridViewTextBoxColumn();
             colAddedDate = new DataGridViewTextBoxColumn();
             colStatus = new DataGridViewTextBoxColumn();
+            panelIPControls = new Panel();
+            btnAddWhitelist = new Button();
+            txtIPAddress = new TextBox();
+            tabSystem = new TabPage();
+            contextMenuIPList = new ContextMenuStrip(components);
+            menuItemRemoveIP = new ToolStripMenuItem();
+            menuItemToggleStatus = new ToolStripMenuItem();
+            btnOK = new Button();
+            btnCancel = new Button();
             tabControlSettings.SuspendLayout();
             tabProtection.SuspendLayout();
-            tabIPManagement.SuspendLayout();
+            gbBanDuration.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)nudPublicIPBanDays).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)nudPrivateIPBanHours).BeginInit();
             groupBox1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)nudMaxAttempts).BeginInit();
             ((System.ComponentModel.ISupportInitialize)nudTimeWindow).BeginInit();
-            panelIPControls.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)nudMaxAttempts).BeginInit();
+            tabIPManagement.SuspendLayout();
             panelIPGrid.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)gridIPList).BeginInit();
+            panelIPControls.SuspendLayout();
+            contextMenuIPList.SuspendLayout();
             SuspendLayout();
             // 
             // tabControlSettings
@@ -71,6 +87,9 @@
             // 
             // tabProtection
             // 
+            tabProtection.Controls.Add(btnCancel);
+            tabProtection.Controls.Add(btnOK);
+            tabProtection.Controls.Add(gbBanDuration);
             tabProtection.Controls.Add(groupBox1);
             tabProtection.Location = new Point(4, 24);
             tabProtection.Name = "tabProtection";
@@ -80,27 +99,67 @@
             tabProtection.Text = "Protection";
             tabProtection.UseVisualStyleBackColor = true;
             // 
-            // tabIPManagement
+            // gbBanDuration
             // 
-            tabIPManagement.Controls.Add(panelIPGrid);
-            tabIPManagement.Controls.Add(panelIPControls);
-            tabIPManagement.Location = new Point(4, 24);
-            tabIPManagement.Name = "tabIPManagement";
-            tabIPManagement.Padding = new Padding(3);
-            tabIPManagement.Size = new Size(576, 433);
-            tabIPManagement.TabIndex = 1;
-            tabIPManagement.Text = "IP Management";
-            tabIPManagement.UseVisualStyleBackColor = true;
+            gbBanDuration.Controls.Add(chkBurstProtection);
+            gbBanDuration.Controls.Add(lblPublicIPBan);
+            gbBanDuration.Controls.Add(nudPublicIPBanDays);
+            gbBanDuration.Controls.Add(lblPrivateIPBan);
+            gbBanDuration.Controls.Add(nudPrivateIPBanHours);
+            gbBanDuration.Location = new Point(20, 140);
+            gbBanDuration.Name = "gbBanDuration";
+            gbBanDuration.Size = new Size(520, 150);
+            gbBanDuration.TabIndex = 1;
+            gbBanDuration.TabStop = false;
+            gbBanDuration.Text = "Ban Duration Settings";
             // 
-            // tabSystem
+            // chkBurstProtection
             // 
-            tabSystem.Location = new Point(4, 24);
-            tabSystem.Name = "tabSystem";
-            tabSystem.Padding = new Padding(3);
-            tabSystem.Size = new Size(576, 433);
-            tabSystem.TabIndex = 2;
-            tabSystem.Text = "System";
-            tabSystem.UseVisualStyleBackColor = true;
+            chkBurstProtection.AutoSize = true;
+            chkBurstProtection.Location = new Point(20, 110);
+            chkBurstProtection.Name = "chkBurstProtection";
+            chkBurstProtection.Size = new Size(184, 19);
+            chkBurstProtection.TabIndex = 4;
+            chkBurstProtection.Text = "Enable burst attack protection";
+            chkBurstProtection.UseVisualStyleBackColor = true;
+            // 
+            // lblPublicIPBan
+            // 
+            lblPublicIPBan.AutoSize = true;
+            lblPublicIPBan.Location = new Point(20, 72);
+            lblPublicIPBan.Name = "lblPublicIPBan";
+            lblPublicIPBan.Size = new Size(114, 15);
+            lblPublicIPBan.TabIndex = 3;
+            lblPublicIPBan.Text = "Public IP Ban (days):";
+            // 
+            // nudPublicIPBanDays
+            // 
+            nudPublicIPBanDays.Location = new Point(150, 70);
+            nudPublicIPBanDays.Maximum = new decimal(new int[] { 365, 0, 0, 0 });
+            nudPublicIPBanDays.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            nudPublicIPBanDays.Name = "nudPublicIPBanDays";
+            nudPublicIPBanDays.Size = new Size(60, 23);
+            nudPublicIPBanDays.TabIndex = 2;
+            nudPublicIPBanDays.Value = new decimal(new int[] { 30, 0, 0, 0 });
+            // 
+            // lblPrivateIPBan
+            // 
+            lblPrivateIPBan.AutoSize = true;
+            lblPrivateIPBan.Location = new Point(20, 32);
+            lblPrivateIPBan.Name = "lblPrivateIPBan";
+            lblPrivateIPBan.Size = new Size(123, 15);
+            lblPrivateIPBan.TabIndex = 1;
+            lblPrivateIPBan.Text = "Private IP Ban (hours):";
+            // 
+            // nudPrivateIPBanHours
+            // 
+            nudPrivateIPBanHours.Location = new Point(150, 30);
+            nudPrivateIPBanHours.Maximum = new decimal(new int[] { 24, 0, 0, 0 });
+            nudPrivateIPBanHours.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            nudPrivateIPBanHours.Name = "nudPrivateIPBanHours";
+            nudPrivateIPBanHours.Size = new Size(60, 23);
+            nudPrivateIPBanHours.TabIndex = 0;
+            nudPrivateIPBanHours.Value = new decimal(new int[] { 1, 0, 0, 0 });
             // 
             // groupBox1
             // 
@@ -115,24 +174,14 @@
             groupBox1.TabStop = false;
             groupBox1.Text = "Failed Login Attempts";
             // 
-            // nudMaxAttempts
+            // lblTimeWindow
             // 
-            nudMaxAttempts.Location = new Point(159, 30);
-            nudMaxAttempts.Maximum = new decimal(new int[] { 10, 0, 0, 0 });
-            nudMaxAttempts.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
-            nudMaxAttempts.Name = "nudMaxAttempts";
-            nudMaxAttempts.Size = new Size(60, 23);
-            nudMaxAttempts.TabIndex = 0;
-            nudMaxAttempts.Value = new decimal(new int[] { 3, 0, 0, 0 });
-            // 
-            // lblMaxAttempts
-            // 
-            lblMaxAttempts.AutoSize = true;
-            lblMaxAttempts.Location = new Point(20, 32);
-            lblMaxAttempts.Name = "lblMaxAttempts";
-            lblMaxAttempts.Size = new Size(115, 15);
-            lblMaxAttempts.TabIndex = 1;
-            lblMaxAttempts.Text = "Maximum attempts:";
+            lblTimeWindow.AutoSize = true;
+            lblTimeWindow.Location = new Point(20, 62);
+            lblTimeWindow.Name = "lblTimeWindow";
+            lblTimeWindow.Size = new Size(135, 15);
+            lblTimeWindow.TabIndex = 3;
+            lblTimeWindow.Text = "Time window (minutes):";
             // 
             // nudTimeWindow
             // 
@@ -144,45 +193,36 @@
             nudTimeWindow.TabIndex = 2;
             nudTimeWindow.Value = new decimal(new int[] { 5, 0, 0, 0 });
             // 
-            // lblTimeWindow
+            // lblMaxAttempts
             // 
-            lblTimeWindow.AutoSize = true;
-            lblTimeWindow.Location = new Point(20, 62);
-            lblTimeWindow.Name = "lblTimeWindow";
-            lblTimeWindow.Size = new Size(135, 15);
-            lblTimeWindow.TabIndex = 3;
-            lblTimeWindow.Text = "Time window (minutes):";
+            lblMaxAttempts.AutoSize = true;
+            lblMaxAttempts.Location = new Point(20, 32);
+            lblMaxAttempts.Name = "lblMaxAttempts";
+            lblMaxAttempts.Size = new Size(115, 15);
+            lblMaxAttempts.TabIndex = 1;
+            lblMaxAttempts.Text = "Maximum attempts:";
             // 
-            // panelIPControls
+            // nudMaxAttempts
             // 
-            panelIPControls.Controls.Add(btnAddWhitelist);
-            panelIPControls.Controls.Add(txtIPAddress);
-            panelIPControls.Dock = DockStyle.Top;
-            panelIPControls.Location = new Point(3, 3);
-            panelIPControls.Name = "panelIPControls";
-            panelIPControls.Padding = new Padding(10);
-            panelIPControls.Size = new Size(570, 60);
-            panelIPControls.TabIndex = 0;
+            nudMaxAttempts.Location = new Point(159, 30);
+            nudMaxAttempts.Maximum = new decimal(new int[] { 10, 0, 0, 0 });
+            nudMaxAttempts.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            nudMaxAttempts.Name = "nudMaxAttempts";
+            nudMaxAttempts.Size = new Size(60, 23);
+            nudMaxAttempts.TabIndex = 0;
+            nudMaxAttempts.Value = new decimal(new int[] { 3, 0, 0, 0 });
             // 
-            // txtIPAddress
+            // tabIPManagement
             // 
-            txtIPAddress.Location = new Point(10, 20);
-            txtIPAddress.Name = "txtIPAddress";
-            txtIPAddress.PlaceholderText = "Enter IP Address";
-            txtIPAddress.Size = new Size(200, 23);
-            txtIPAddress.TabIndex = 0;
-            // 
-            // btnAddWhitelist
-            // 
-            btnAddWhitelist.BackColor = Color.FromArgb(39, 174, 96);
-            btnAddWhitelist.FlatStyle = FlatStyle.Flat;
-            btnAddWhitelist.ForeColor = Color.White;
-            btnAddWhitelist.Location = new Point(220, 20);
-            btnAddWhitelist.Name = "btnAddWhitelist";
-            btnAddWhitelist.Size = new Size(120, 23);
-            btnAddWhitelist.TabIndex = 1;
-            btnAddWhitelist.Text = "Add to Whitelist";
-            btnAddWhitelist.UseVisualStyleBackColor = false;
+            tabIPManagement.Controls.Add(panelIPGrid);
+            tabIPManagement.Controls.Add(panelIPControls);
+            tabIPManagement.Location = new Point(4, 24);
+            tabIPManagement.Name = "tabIPManagement";
+            tabIPManagement.Padding = new Padding(3);
+            tabIPManagement.Size = new Size(576, 433);
+            tabIPManagement.TabIndex = 1;
+            tabIPManagement.Text = "IP Management";
+            tabIPManagement.UseVisualStyleBackColor = true;
             // 
             // panelIPGrid
             // 
@@ -240,6 +280,87 @@
             colStatus.Name = "colStatus";
             colStatus.ReadOnly = true;
             // 
+            // panelIPControls
+            // 
+            panelIPControls.Controls.Add(btnAddWhitelist);
+            panelIPControls.Controls.Add(txtIPAddress);
+            panelIPControls.Dock = DockStyle.Top;
+            panelIPControls.Location = new Point(3, 3);
+            panelIPControls.Name = "panelIPControls";
+            panelIPControls.Padding = new Padding(10);
+            panelIPControls.Size = new Size(570, 60);
+            panelIPControls.TabIndex = 0;
+            // 
+            // btnAddWhitelist
+            // 
+            btnAddWhitelist.BackColor = Color.FromArgb(39, 174, 96);
+            btnAddWhitelist.FlatStyle = FlatStyle.Flat;
+            btnAddWhitelist.ForeColor = Color.White;
+            btnAddWhitelist.Location = new Point(220, 20);
+            btnAddWhitelist.Name = "btnAddWhitelist";
+            btnAddWhitelist.Size = new Size(120, 23);
+            btnAddWhitelist.TabIndex = 1;
+            btnAddWhitelist.Text = "Add to Whitelist";
+            btnAddWhitelist.UseVisualStyleBackColor = false;
+            // 
+            // txtIPAddress
+            // 
+            txtIPAddress.Location = new Point(10, 20);
+            txtIPAddress.Name = "txtIPAddress";
+            txtIPAddress.PlaceholderText = "Enter IP Address";
+            txtIPAddress.Size = new Size(200, 23);
+            txtIPAddress.TabIndex = 0;
+            // 
+            // tabSystem
+            // 
+            tabSystem.Location = new Point(4, 24);
+            tabSystem.Name = "tabSystem";
+            tabSystem.Padding = new Padding(3);
+            tabSystem.Size = new Size(576, 433);
+            tabSystem.TabIndex = 2;
+            tabSystem.Text = "System";
+            tabSystem.UseVisualStyleBackColor = true;
+            // 
+            // contextMenuIPList
+            // 
+            contextMenuIPList.Items.AddRange(new ToolStripItem[] { menuItemRemoveIP, menuItemToggleStatus });
+            contextMenuIPList.Name = "contextMenuIPList";
+            contextMenuIPList.Size = new Size(168, 48);
+            // 
+            // menuItemRemoveIP
+            // 
+            menuItemRemoveIP.Name = "menuItemRemoveIP";
+            menuItemRemoveIP.Size = new Size(167, 22);
+            menuItemRemoveIP.Text = "Remove from List";
+            // 
+            // menuItemToggleStatus
+            // 
+            menuItemToggleStatus.Name = "menuItemToggleStatus";
+            menuItemToggleStatus.Size = new Size(167, 22);
+            menuItemToggleStatus.Text = "Enable/Disable";
+            // 
+            // btnOK
+            // 
+            btnOK.BackColor = Color.FromArgb(52, 152, 219);
+            btnOK.DialogResult = DialogResult.OK;
+            btnOK.ForeColor = Color.White;
+            btnOK.Location = new Point(20, 310);
+            btnOK.Name = "btnOK";
+            btnOK.Size = new Size(80, 30);
+            btnOK.TabIndex = 2;
+            btnOK.Text = "OK";
+            btnOK.UseVisualStyleBackColor = false;
+            // 
+            // btnCancel
+            // 
+            btnCancel.DialogResult = DialogResult.Cancel;
+            btnCancel.Location = new Point(20, 346);
+            btnCancel.Name = "btnCancel";
+            btnCancel.Size = new Size(80, 30);
+            btnCancel.TabIndex = 3;
+            btnCancel.Text = "Cancel";
+            btnCancel.UseVisualStyleBackColor = true;
+            // 
             // SettingsForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
@@ -254,15 +375,20 @@
             Text = "RDPSecure Settings";
             tabControlSettings.ResumeLayout(false);
             tabProtection.ResumeLayout(false);
-            tabIPManagement.ResumeLayout(false);
+            gbBanDuration.ResumeLayout(false);
+            gbBanDuration.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)nudPublicIPBanDays).EndInit();
+            ((System.ComponentModel.ISupportInitialize)nudPrivateIPBanHours).EndInit();
             groupBox1.ResumeLayout(false);
             groupBox1.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)nudMaxAttempts).EndInit();
             ((System.ComponentModel.ISupportInitialize)nudTimeWindow).EndInit();
-            panelIPControls.ResumeLayout(false);
-            panelIPControls.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)nudMaxAttempts).EndInit();
+            tabIPManagement.ResumeLayout(false);
             panelIPGrid.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)gridIPList).EndInit();
+            panelIPControls.ResumeLayout(false);
+            panelIPControls.PerformLayout();
+            contextMenuIPList.ResumeLayout(false);
             ResumeLayout(false);
         }
 
@@ -286,5 +412,16 @@
         private DataGridViewTextBoxColumn colType;
         private DataGridViewTextBoxColumn colAddedDate;
         private DataGridViewTextBoxColumn colStatus;
+        private ContextMenuStrip contextMenuIPList;
+        private ToolStripMenuItem menuItemRemoveIP;
+        private ToolStripMenuItem menuItemToggleStatus;
+        private GroupBox gbBanDuration;
+        private CheckBox chkBurstProtection;
+        private Label lblPublicIPBan;
+        private NumericUpDown nudPublicIPBanDays;
+        private Label lblPrivateIPBan;
+        private NumericUpDown nudPrivateIPBanHours;
+        private Button btnCancel;
+        private Button btnOK;
     }
 }

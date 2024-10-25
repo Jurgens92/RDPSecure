@@ -2,19 +2,37 @@ namespace RDPSecure;
 
 public partial class MainForm : Form
 {
+    private AppSettings settings;
     public MainForm()
     {
         InitializeComponent();
         AddSampleData();
         SetupEventHandlers();
+        settings = SettingsManager.LoadSettings();
+        SetupEventHandlers();
+        UpdateUIFromSettings();
     }
 
-    private void SetupEventHandlers()
+
+    private void UpdateUIFromSettings()
+    {
+        // Update whitelisted count
+        lblWhitelistedCount.Text = settings.WhitelistedIPs.Count.ToString();
+    }
+
+
+
+
+
+        private void SetupEventHandlers()
     {
 
 
-        //settings button
+        //button clicks
         btnSettings.Click += OnOpenSettings;
+        btnExit.Click += OnExit;
+
+
 
         //tooltip clicks
         toolStripMenuItem1.Click += OnOpenDashboard;  // Open Dashboard
@@ -57,8 +75,15 @@ public partial class MainForm : Form
 
     private void OnOpenSettings(object sender, EventArgs e)
     {
-        // We'll implement later
-        MessageBox.Show("Settings coming soon!");
+        using (var settingsForm = new SettingsForm())
+        {
+            if (settingsForm.ShowDialog(this) == DialogResult.OK)
+            {
+                // Reload settings after dialog closes
+                settings = SettingsManager.LoadSettings();
+                UpdateUIFromSettings();
+            }
+        }
     }
 
 
@@ -90,12 +115,14 @@ public partial class MainForm : Form
 
 
 
-        //Sample Data-------------------------------------------------------------------------------------
-        private void AddSampleData()
-        {
-            gridBannedIPs.Rows.Add("192.168.1.100", "Internal Network", "1 hour", "3", "Banned");
-            gridBannedIPs.Rows.Add("203.0.113.45", "United States", "30 days", "5", "Banned");
-            gridBannedIPs.Rows.Add("198.51.100.76", "Germany", "30 days", "8", "Banned");
-        }
+    //Sample Data-------------------------------------------------------------------------------------
+    private void AddSampleData()
+    {
+        gridBannedIPs.Rows.Add("192.168.1.100", "Internal Network", "1 hour", "3", "Banned");
+        gridBannedIPs.Rows.Add("203.0.113.45", "United States", "30 days", "5", "Banned");
+        gridBannedIPs.Rows.Add("198.51.100.76", "Germany", "30 days", "8", "Banned");
+    }
+
+  
 }
 

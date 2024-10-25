@@ -59,6 +59,7 @@ partial class MainForm
         settingsToolStripMenuItem = new ToolStripMenuItem();
         toolStripMenuItem3 = new ToolStripMenuItem();
         exitToolStripMenuItem = new ToolStripMenuItem();
+        btnExit = new Button();
         panelStats.SuspendLayout();
         panelWhitelisted.SuspendLayout();
         panelRecentAttempts.SuspendLayout();
@@ -70,6 +71,7 @@ partial class MainForm
         // 
         // panelStats
         // 
+        panelStats.Controls.Add(btnExit);
         panelStats.Controls.Add(btnSettings);
         panelStats.Controls.Add(panelWhitelisted);
         panelStats.Controls.Add(panelRecentAttempts);
@@ -315,6 +317,20 @@ partial class MainForm
         exitToolStripMenuItem.Size = new Size(163, 22);
         exitToolStripMenuItem.Text = "Exit";
         // 
+        // btnExit
+        // 
+        btnExit.BackColor = Color.FromArgb(52, 152, 219);
+        btnExit.Cursor = Cursors.Hand;
+        btnExit.FlatStyle = FlatStyle.Flat;
+        btnExit.ForeColor = Color.White;
+        btnExit.Location = new Point(661, 46);
+        btnExit.Name = "btnExit";
+        btnExit.Size = new Size(100, 30);
+        btnExit.TabIndex = 4;
+        btnExit.Text = "Exit";
+        toolTip1.SetToolTip(btnExit, "Open Settings");
+        btnExit.UseVisualStyleBackColor = false;
+        // 
         // MainForm
         // 
         AutoScaleDimensions = new SizeF(7F, 15F);
@@ -369,4 +385,5 @@ partial class MainForm
     private ToolStripMenuItem settingsToolStripMenuItem;
     private ToolStripMenuItem toolStripMenuItem3;
     private ToolStripMenuItem exitToolStripMenuItem;
+    private Button btnExit;
 }
