@@ -4,9 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-
-
-    namespace RDPSecure.Data;
+namespace RDPSecure.Data;
 
     public static class AppDataManager
     {
