@@ -54,8 +54,5 @@ namespace RDPSecure
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-
-
-
     }
 }

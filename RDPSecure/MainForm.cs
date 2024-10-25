@@ -20,10 +20,6 @@ public partial class MainForm : Form
         lblWhitelistedCount.Text = settings.WhitelistedIPs.Count.ToString();
     }
 
-
-
-
-
         private void SetupEventHandlers()
     {
 

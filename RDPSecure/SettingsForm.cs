@@ -23,7 +23,7 @@ namespace RDPSecure
             currentSettings = SettingsManager.LoadSettings();
             LoadSettingsToForm();
         }
-        //x---------------------------------------------------------------------------------------------------------
+        //---------------------------------------------------------------------------------------------------------
 
         private void LoadSettingsToForm()
         {
@@ -81,18 +81,6 @@ namespace RDPSecure
         }
 
 
-
-        //x------------------------------------------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
         //------------------------------------------------------------------------------------------------------------------
         private void InitializeSettings()
         {
@@ -125,8 +113,8 @@ namespace RDPSecure
 
         private void Settings_ValueChanged(object sender, EventArgs e)
         {
-            // Here we'll add code to handle settings changes
-            // For now, we'll just validate the values
+            // handle settings changes
+            // validate the values
             if (sender is NumericUpDown nud)
             {
                 if (nud.Value < nud.Minimum) nud.Value = nud.Minimum;
@@ -139,8 +127,6 @@ namespace RDPSecure
         public int PrivateIPBanHours => (int)nudPrivateIPBanHours.Value;
         public int PublicIPBanDays => (int)nudPublicIPBanDays.Value;
         public bool BurstProtectionEnabled => chkBurstProtection.Checked;
-
-
 
 
 
