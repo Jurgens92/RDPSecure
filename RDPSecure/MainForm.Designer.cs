@@ -29,6 +29,9 @@ partial class MainForm
     private void InitializeComponent()
     {
         components = new System.ComponentModel.Container();
+        DataGridViewCellStyle dataGridViewCellStyle1 = new DataGridViewCellStyle();
+        DataGridViewCellStyle dataGridViewCellStyle2 = new DataGridViewCellStyle();
+        DataGridViewCellStyle dataGridViewCellStyle3 = new DataGridViewCellStyle();
         panelStats = new Panel();
         btnSettings = new Button();
         panelWhitelisted = new Panel();
@@ -41,10 +44,19 @@ partial class MainForm
         lblActiveBansCount = new Label();
         lblActiveBansTitle = new Label();
         toolTip1 = new ToolTip(components);
+        panelGrid = new Panel();
+        gridBannedIPs = new DataGridView();
+        Column1 = new DataGridViewTextBoxColumn();
+        Column2 = new DataGridViewTextBoxColumn();
+        Column3 = new DataGridViewTextBoxColumn();
+        Column4 = new DataGridViewTextBoxColumn();
+        Column5 = new DataGridViewTextBoxColumn();
         panelStats.SuspendLayout();
         panelWhitelisted.SuspendLayout();
         panelRecentAttempts.SuspendLayout();
         panelActiveBans.SuspendLayout();
+        panelGrid.SuspendLayout();
+        ((System.ComponentModel.ISupportInitialize)gridBannedIPs).BeginInit();
         SuspendLayout();
         // 
         // panelStats
@@ -170,15 +182,98 @@ partial class MainForm
         lblActiveBansTitle.TabIndex = 1;
         lblActiveBansTitle.Text = "Active Bans";
         // 
+        // panelGrid
+        // 
+        panelGrid.Controls.Add(gridBannedIPs);
+        panelGrid.Dock = DockStyle.Fill;
+        panelGrid.Location = new Point(0, 120);
+        panelGrid.Name = "panelGrid";
+        panelGrid.Padding = new Padding(20);
+        panelGrid.Size = new Size(784, 441);
+        panelGrid.TabIndex = 1;
+        // 
+        // gridBannedIPs
+        // 
+        gridBannedIPs.AllowUserToAddRows = false;
+        gridBannedIPs.AllowUserToDeleteRows = false;
+        gridBannedIPs.AllowUserToResizeColumns = false;
+        gridBannedIPs.AllowUserToResizeRows = false;
+        dataGridViewCellStyle1.BackColor = Color.FromArgb(249, 249, 249);
+        gridBannedIPs.AlternatingRowsDefaultCellStyle = dataGridViewCellStyle1;
+        gridBannedIPs.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+        gridBannedIPs.BackgroundColor = Color.FromArgb(224, 224, 224);
+        gridBannedIPs.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
+        dataGridViewCellStyle2.Alignment = DataGridViewContentAlignment.MiddleLeft;
+        dataGridViewCellStyle2.BackColor = Color.WhiteSmoke;
+        dataGridViewCellStyle2.Font = new Font("Segoe UI", 9F);
+        dataGridViewCellStyle2.ForeColor = Color.FromArgb(64, 64, 64);
+        dataGridViewCellStyle2.SelectionBackColor = SystemColors.Highlight;
+        dataGridViewCellStyle2.SelectionForeColor = SystemColors.HighlightText;
+        dataGridViewCellStyle2.WrapMode = DataGridViewTriState.True;
+        gridBannedIPs.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle2;
+        gridBannedIPs.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+        gridBannedIPs.Columns.AddRange(new DataGridViewColumn[] { Column1, Column2, Column3, Column4, Column5 });
+        gridBannedIPs.Cursor = Cursors.Hand;
+        dataGridViewCellStyle3.Alignment = DataGridViewContentAlignment.MiddleLeft;
+        dataGridViewCellStyle3.BackColor = Color.White;
+        dataGridViewCellStyle3.Font = new Font("Segoe UI", 9F);
+        dataGridViewCellStyle3.ForeColor = Color.FromArgb(64, 64, 64);
+        dataGridViewCellStyle3.SelectionBackColor = Color.FromArgb(52, 152, 219);
+        dataGridViewCellStyle3.SelectionForeColor = Color.White;
+        dataGridViewCellStyle3.WrapMode = DataGridViewTriState.False;
+        gridBannedIPs.DefaultCellStyle = dataGridViewCellStyle3;
+        gridBannedIPs.Dock = DockStyle.Fill;
+        gridBannedIPs.EnableHeadersVisualStyles = false;
+        gridBannedIPs.Location = new Point(20, 20);
+        gridBannedIPs.MultiSelect = false;
+        gridBannedIPs.Name = "gridBannedIPs";
+        gridBannedIPs.ReadOnly = true;
+        gridBannedIPs.RowHeadersBorderStyle = DataGridViewHeaderBorderStyle.Sunken;
+        gridBannedIPs.RowHeadersVisible = false;
+        gridBannedIPs.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+        gridBannedIPs.Size = new Size(744, 401);
+        gridBannedIPs.TabIndex = 0;
+        // 
+        // Column1
+        // 
+        Column1.HeaderText = "IP Address";
+        Column1.Name = "Column1";
+        Column1.ReadOnly = true;
+        // 
+        // Column2
+        // 
+        Column2.HeaderText = "Location";
+        Column2.Name = "Column2";
+        Column2.ReadOnly = true;
+        // 
+        // Column3
+        // 
+        Column3.HeaderText = "Ban Duration";
+        Column3.Name = "Column3";
+        Column3.ReadOnly = true;
+        // 
+        // Column4
+        // 
+        Column4.HeaderText = "Attempts";
+        Column4.Name = "Column4";
+        Column4.ReadOnly = true;
+        // 
+        // Column5
+        // 
+        Column5.HeaderText = "Status";
+        Column5.Name = "Column5";
+        Column5.ReadOnly = true;
+        // 
         // MainForm
         // 
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         ClientSize = new Size(784, 561);
+        Controls.Add(panelGrid);
         Controls.Add(panelStats);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
-        Text = "Form1";
+        Text = "RDP Secure";
         panelStats.ResumeLayout(false);
         panelWhitelisted.ResumeLayout(false);
         panelWhitelisted.PerformLayout();
@@ -186,6 +281,8 @@ partial class MainForm
         panelRecentAttempts.PerformLayout();
         panelActiveBans.ResumeLayout(false);
         panelActiveBans.PerformLayout();
+        panelGrid.ResumeLayout(false);
+        ((System.ComponentModel.ISupportInitialize)gridBannedIPs).EndInit();
         ResumeLayout(false);
     }
 
@@ -203,4 +300,11 @@ partial class MainForm
     private Label lblActiveBansTitle;
     private Button btnSettings;
     private ToolTip toolTip1;
+    private Panel panelGrid;
+    private DataGridView gridBannedIPs;
+    private DataGridViewTextBoxColumn Column1;
+    private DataGridViewTextBoxColumn Column2;
+    private DataGridViewTextBoxColumn Column3;
+    private DataGridViewTextBoxColumn Column4;
+    private DataGridViewTextBoxColumn Column5;
 }
