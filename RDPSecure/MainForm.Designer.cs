@@ -32,6 +32,7 @@ partial class MainForm
         DataGridViewCellStyle dataGridViewCellStyle1 = new DataGridViewCellStyle();
         DataGridViewCellStyle dataGridViewCellStyle2 = new DataGridViewCellStyle();
         DataGridViewCellStyle dataGridViewCellStyle3 = new DataGridViewCellStyle();
+        System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
         panelStats = new Panel();
         btnSettings = new Button();
         panelWhitelisted = new Panel();
@@ -51,12 +52,20 @@ partial class MainForm
         Column3 = new DataGridViewTextBoxColumn();
         Column4 = new DataGridViewTextBoxColumn();
         Column5 = new DataGridViewTextBoxColumn();
+        notifyIconRDPSecure = new NotifyIcon(components);
+        contextMenuTray = new ContextMenuStrip(components);
+        toolStripMenuItem1 = new ToolStripMenuItem();
+        toolStripMenuItem2 = new ToolStripMenuItem();
+        settingsToolStripMenuItem = new ToolStripMenuItem();
+        toolStripMenuItem3 = new ToolStripMenuItem();
+        exitToolStripMenuItem = new ToolStripMenuItem();
         panelStats.SuspendLayout();
         panelWhitelisted.SuspendLayout();
         panelRecentAttempts.SuspendLayout();
         panelActiveBans.SuspendLayout();
         panelGrid.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)gridBannedIPs).BeginInit();
+        contextMenuTray.SuspendLayout();
         SuspendLayout();
         // 
         // panelStats
@@ -264,6 +273,48 @@ partial class MainForm
         Column5.Name = "Column5";
         Column5.ReadOnly = true;
         // 
+        // notifyIconRDPSecure
+        // 
+        notifyIconRDPSecure.Icon = (Icon)resources.GetObject("notifyIconRDPSecure.Icon");
+        notifyIconRDPSecure.Text = "RDPSecure";
+        notifyIconRDPSecure.Visible = true;
+        // 
+        // contextMenuTray
+        // 
+        contextMenuTray.Items.AddRange(new ToolStripItem[] { toolStripMenuItem1, toolStripMenuItem2, settingsToolStripMenuItem, toolStripMenuItem3, exitToolStripMenuItem });
+        contextMenuTray.Name = "contextMenuTray";
+        contextMenuTray.Size = new Size(164, 114);
+        // 
+        // toolStripMenuItem1
+        // 
+        toolStripMenuItem1.Name = "toolStripMenuItem1";
+        toolStripMenuItem1.Size = new Size(163, 22);
+        toolStripMenuItem1.Text = "Open Dashboard";
+        // 
+        // toolStripMenuItem2
+        // 
+        toolStripMenuItem2.Name = "toolStripMenuItem2";
+        toolStripMenuItem2.Size = new Size(163, 22);
+        toolStripMenuItem2.Text = "-";
+        // 
+        // settingsToolStripMenuItem
+        // 
+        settingsToolStripMenuItem.Name = "settingsToolStripMenuItem";
+        settingsToolStripMenuItem.Size = new Size(163, 22);
+        settingsToolStripMenuItem.Text = "Settings";
+        // 
+        // toolStripMenuItem3
+        // 
+        toolStripMenuItem3.Name = "toolStripMenuItem3";
+        toolStripMenuItem3.Size = new Size(163, 22);
+        toolStripMenuItem3.Text = "-";
+        // 
+        // exitToolStripMenuItem
+        // 
+        exitToolStripMenuItem.Name = "exitToolStripMenuItem";
+        exitToolStripMenuItem.Size = new Size(163, 22);
+        exitToolStripMenuItem.Text = "Exit";
+        // 
         // MainForm
         // 
         AutoScaleDimensions = new SizeF(7F, 15F);
@@ -283,6 +334,7 @@ partial class MainForm
         panelActiveBans.PerformLayout();
         panelGrid.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)gridBannedIPs).EndInit();
+        contextMenuTray.ResumeLayout(false);
         ResumeLayout(false);
     }
 
@@ -307,4 +359,11 @@ partial class MainForm
     private DataGridViewTextBoxColumn Column3;
     private DataGridViewTextBoxColumn Column4;
     private DataGridViewTextBoxColumn Column5;
+    private NotifyIcon notifyIconRDPSecure;
+    private ContextMenuStrip contextMenuTray;
+    private ToolStripMenuItem toolStripMenuItem1;
+    private ToolStripMenuItem toolStripMenuItem2;
+    private ToolStripMenuItem settingsToolStripMenuItem;
+    private ToolStripMenuItem toolStripMenuItem3;
+    private ToolStripMenuItem exitToolStripMenuItem;
 }
