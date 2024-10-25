@@ -96,7 +96,7 @@ public partial class MainForm : Form
         {
             e.Cancel = true;
             Hide();
-            notifyIconRDPSecure.ShowBalloonTip(2000, "RDPSecure",
+            notifyIconRDPSecure.ShowBalloonTip(2000, "RDPSecure Notification",
                 "Application is still running in the system tray.",
                 ToolTipIcon.Info);
         }
