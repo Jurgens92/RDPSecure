@@ -322,6 +322,9 @@ partial class MainForm
         ClientSize = new Size(784, 561);
         Controls.Add(panelGrid);
         Controls.Add(panelStats);
+        FormBorderStyle = FormBorderStyle.FixedSingle;
+        MaximizeBox = false;
+        MinimizeBox = false;
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "RDP Secure";
