@@ -7,6 +7,7 @@ namespace RDPSecure.Services
 {
     public class RDPMonitorService : IRDPMonitorService
     {
+        private const string FIREWALL_RULE_NAME = "RDPSecure-Blocked-IPs";
         private readonly AppSettings _settings;
         private readonly Dictionary<string, List<DateTime>> _loginAttempts;
         private readonly Dictionary<string, BanInfo> _bannedIPs;
@@ -16,6 +17,58 @@ namespace RDPSecure.Services
 
         public event EventHandler<LoginAttemptEventArgs>? LoginAttemptDetected;
         public event EventHandler<IPBanEventArgs>? IPBanned;
+
+
+
+        private bool IsWhitelisted(string ipAddress)
+        {
+            // Reload settings to get the latest whitelist
+            var currentSettings = SettingsManager.LoadSettings();
+            return currentSettings.WhitelistedIPs.Any(w =>
+                string.Equals(w.IPAddress, ipAddress, StringComparison.OrdinalIgnoreCase) &&
+                w.IsEnabled);
+        }
+
+
+        public void AddManualBan(string ipAddress, TimeSpan duration)
+        {
+            // Check whitelist before manual ban
+            if (IsWhitelisted(ipAddress))
+            {
+                MessageBox.Show(
+                    $"Cannot ban {ipAddress} as it is whitelisted. Remove from whitelist first.",
+                    "Whitelist Conflict",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (!_bannedIPs.ContainsKey(ipAddress))
+            {
+                var banInfo = new BanInfo
+                {
+                    IPAddress = ipAddress,
+                    BanTime = DateTime.Now,
+                    Duration = duration,
+                    ExpiryTime = DateTime.Now.Add(duration),
+                    AttemptCount = 0
+                };
+
+                _bannedIPs[ipAddress] = banInfo;
+                UpdateFirewallRule();
+                SettingsManager.SaveBannedIPs(_bannedIPs);
+
+                IPBanned?.Invoke(this, new IPBanEventArgs
+                {
+                    IPAddress = ipAddress,
+                    BanTime = DateTime.Now,
+                    Duration = duration
+                });
+
+                _logger.LogInformation($"IP {ipAddress} manually banned");
+            }
+        }
+
 
         public RDPMonitorService(AppSettings settings)
         {
@@ -31,11 +84,10 @@ namespace RDPSecure.Services
                 foreach (var ban in savedBans)
                 {
                     _bannedIPs[ban.Key] = ban.Value;
-                    if (DateTime.Now < ban.Value.ExpiryTime)
-                    {
-                        AddFirewallRule(ban.Value.IPAddress);
-                    }
                 }
+
+                // Initialize or update the firewall rule
+                UpdateFirewallRule();
 
                 // Set up Windows Event Log monitoring
                 _eventLog = new EventLog("Security");
@@ -56,6 +108,13 @@ namespace RDPSecure.Services
 
         private void BanIP(string ipAddress)
         {
+            // Final whitelist check before banning
+            if (IsWhitelisted(ipAddress))
+            {
+                _logger.LogInformation($"Prevented ban of whitelisted IP: {ipAddress}");
+                return;
+            }
+
             if (!_bannedIPs.ContainsKey(ipAddress))
             {
                 var duration = IsPrivateIP(ipAddress)
@@ -68,16 +127,14 @@ namespace RDPSecure.Services
                     BanTime = DateTime.Now,
                     Duration = duration,
                     ExpiryTime = DateTime.Now.Add(duration),
-                    AttemptCount = _loginAttempts[ipAddress].Count
+                    AttemptCount = _loginAttempts.ContainsKey(ipAddress) ?
+                        _loginAttempts[ipAddress].Count : 0
                 };
 
                 _bannedIPs[ipAddress] = banInfo;
-                AddFirewallRule(ipAddress);
-
-                // Save banned IPs to file
+                UpdateFirewallRule();
                 SettingsManager.SaveBannedIPs(_bannedIPs);
 
-                // Raise the ban event
                 IPBanned?.Invoke(this, new IPBanEventArgs
                 {
                     IPAddress = ipAddress,
@@ -131,35 +188,166 @@ namespace RDPSecure.Services
 
         private void ProcessLoginAttempt(string ipAddress)
         {
-            // Skip if IP is whitelisted
-            if (_settings.WhitelistedIPs.Any(w =>
-                string.Equals(w.IPAddress, ipAddress, StringComparison.OrdinalIgnoreCase)))
+            try
             {
-                return;
+                // First check whitelist - if whitelisted, log and return immediately
+                if (IsWhitelisted(ipAddress))
+                {
+                    _logger.LogInformation($"Login attempt from whitelisted IP: {ipAddress} - allowing");
+                    return;
+                }
+
+                // If IP is already banned, just log the attempt
+                if (_bannedIPs.ContainsKey(ipAddress) && DateTime.Now < _bannedIPs[ipAddress].ExpiryTime)
+                {
+                    _logger.LogInformation($"Login attempt from banned IP: {ipAddress}");
+                    return;
+                }
+
+                // Record the attempt for non-whitelisted IPs
+                if (!_loginAttempts.ContainsKey(ipAddress))
+                {
+                    _loginAttempts[ipAddress] = new List<DateTime>();
+                }
+
+                // Add the attempt and clean old attempts
+                _loginAttempts[ipAddress].Add(DateTime.Now);
+                CleanOldAttempts(ipAddress);
+
+                // Raise the event
+                LoginAttemptDetected?.Invoke(this, new LoginAttemptEventArgs
+                {
+                    IPAddress = ipAddress,
+                    Timestamp = DateTime.Now
+                });
+
+                // Check if we should ban this IP
+                CheckForBan(ipAddress);
             }
-
-            // Record the attempt
-            if (!_loginAttempts.ContainsKey(ipAddress))
+            catch (Exception ex)
             {
-                _loginAttempts[ipAddress] = new List<DateTime>();
+                _logger.LogError($"Error processing login attempt: {ex.Message}");
             }
-            _loginAttempts[ipAddress].Add(DateTime.Now);
-
-            // Raise the event
-            LoginAttemptDetected?.Invoke(this, new LoginAttemptEventArgs
-            {
-                IPAddress = ipAddress,
-                Timestamp = DateTime.Now
-            });
-
-            // Check if we should ban this IP
-            CheckForBan(ipAddress);
         }
+
+        private void CleanOldAttempts(string ipAddress)
+        {
+            if (_loginAttempts.ContainsKey(ipAddress))
+            {
+                var cutoffTime = DateTime.Now.AddMinutes(-_settings.TimeWindow);
+                _loginAttempts[ipAddress] = _loginAttempts[ipAddress]
+                    .Where(attempt => attempt > cutoffTime)
+                    .ToList();
+            }
+        }
+
+        public void RemoveBan(string ipAddress)
+        {
+            if (_bannedIPs.Remove(ipAddress))
+            {
+                UpdateFirewallRule();
+                SettingsManager.SaveBannedIPs(_bannedIPs);
+                _logger.LogInformation($"Ban removed for IP: {ipAddress}");
+            }
+        }
+
+        private void UpdateFirewallRule()
+        {
+            try
+            {
+                // Remove existing rule if it exists
+                RemoveFirewallRule();
+
+                // Get all active banned IPs
+                var activeBannedIPs = _bannedIPs
+                    .Where(kvp => DateTime.Now < kvp.Value.ExpiryTime)
+                    .Select(kvp => kvp.Key)
+                    .ToList();
+
+                if (activeBannedIPs.Any())
+                {
+                    // Create new rule with all banned IPs
+                    var process = new Process
+                    {
+                        StartInfo = new ProcessStartInfo
+                        {
+                            FileName = "netsh",
+                            Arguments = $"advfirewall firewall add rule" +
+                                      $" name=\"{FIREWALL_RULE_NAME}\"" +
+                                      $" dir=in" +
+                                      $" interface=any" +
+                                      $" action=block" +
+                                      $" remoteip={string.Join(",", activeBannedIPs)}",
+                            CreateNoWindow = true,
+                            UseShellExecute = false,
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true
+                        }
+                    };
+
+                    process.Start();
+                    string output = process.StandardOutput.ReadToEnd();
+                    string error = process.StandardError.ReadToEnd();
+                    process.WaitForExit();
+
+                    if (process.ExitCode != 0)
+                    {
+                        _logger.LogError($"Error updating firewall rule. Output: {output} Error: {error}");
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"Firewall rule updated with {activeBannedIPs.Count} IPs");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error managing firewall rule: {ex.Message}");
+            }
+        }
+
+        private void RemoveFirewallRule()
+        {
+            try
+            {
+                var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "netsh",
+                        Arguments = $"advfirewall firewall delete rule name=\"{FIREWALL_RULE_NAME}\"",
+                        CreateNoWindow = true,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true
+                    }
+                };
+
+                process.Start();
+                process.WaitForExit();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error removing firewall rule: {ex.Message}");
+            }
+        }
+
+        public void Dispose()
+        {
+            _eventLog?.Dispose();
+            // Don't remove the firewall rule on dispose - we want it to persist
+        }
+
+
 
         private void CheckForBan(string ipAddress)
         {
-            if (_bannedIPs.ContainsKey(ipAddress))
+            // Double check whitelist before banning
+            if (IsWhitelisted(ipAddress))
+            {
+                _logger.LogInformation($"IP {ipAddress} is whitelisted - not banning");
                 return;
+            }
 
             var recentAttempts = _loginAttempts[ipAddress]
                 .Where(t => t > DateTime.Now.AddMinutes(-_settings.TimeWindow))
@@ -172,6 +360,25 @@ namespace RDPSecure.Services
         }
 
 
+        public void CleanupExpiredBans()
+        {
+            var expiredBans = _bannedIPs
+                .Where(kvp => DateTime.Now >= kvp.Value.ExpiryTime)
+                .Select(kvp => kvp.Key)
+                .ToList();
+
+            if (expiredBans.Any())
+            {
+                foreach (var ip in expiredBans)
+                {
+                    _bannedIPs.Remove(ip);
+                }
+
+                UpdateFirewallRule();
+                SettingsManager.SaveBannedIPs(_bannedIPs);
+                _logger.LogInformation($"Cleaned up {expiredBans.Count} expired bans");
+            }
+        }
 
         private bool IsPrivateIP(string ipAddress)
         {

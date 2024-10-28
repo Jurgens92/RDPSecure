@@ -31,6 +31,8 @@
             components = new System.ComponentModel.Container();
             tabControlSettings = new TabControl();
             tabProtection = new TabPage();
+            btnCancel = new Button();
+            btnOK = new Button();
             gbBanDuration = new GroupBox();
             chkBurstProtection = new CheckBox();
             lblPublicIPBan = new Label();
@@ -56,8 +58,7 @@
             contextMenuIPList = new ContextMenuStrip(components);
             menuItemRemoveIP = new ToolStripMenuItem();
             menuItemToggleStatus = new ToolStripMenuItem();
-            btnOK = new Button();
-            btnCancel = new Button();
+            btnAddBlacklist = new Button();
             tabControlSettings.SuspendLayout();
             tabProtection.SuspendLayout();
             gbBanDuration.SuspendLayout();
@@ -98,6 +99,28 @@
             tabProtection.TabIndex = 0;
             tabProtection.Text = "Protection";
             tabProtection.UseVisualStyleBackColor = true;
+            // 
+            // btnCancel
+            // 
+            btnCancel.DialogResult = DialogResult.Cancel;
+            btnCancel.Location = new Point(20, 346);
+            btnCancel.Name = "btnCancel";
+            btnCancel.Size = new Size(80, 30);
+            btnCancel.TabIndex = 3;
+            btnCancel.Text = "Cancel";
+            btnCancel.UseVisualStyleBackColor = true;
+            // 
+            // btnOK
+            // 
+            btnOK.BackColor = Color.FromArgb(52, 152, 219);
+            btnOK.DialogResult = DialogResult.OK;
+            btnOK.ForeColor = Color.White;
+            btnOK.Location = new Point(20, 310);
+            btnOK.Name = "btnOK";
+            btnOK.Size = new Size(80, 30);
+            btnOK.TabIndex = 2;
+            btnOK.Text = "OK";
+            btnOK.UseVisualStyleBackColor = false;
             // 
             // gbBanDuration
             // 
@@ -282,6 +305,7 @@
             // 
             // panelIPControls
             // 
+            panelIPControls.Controls.Add(btnAddBlacklist);
             panelIPControls.Controls.Add(btnAddWhitelist);
             panelIPControls.Controls.Add(txtIPAddress);
             panelIPControls.Dock = DockStyle.Top;
@@ -339,27 +363,17 @@
             menuItemToggleStatus.Size = new Size(167, 22);
             menuItemToggleStatus.Text = "Enable/Disable";
             // 
-            // btnOK
+            // btnAddBlacklist
             // 
-            btnOK.BackColor = Color.FromArgb(52, 152, 219);
-            btnOK.DialogResult = DialogResult.OK;
-            btnOK.ForeColor = Color.White;
-            btnOK.Location = new Point(20, 310);
-            btnOK.Name = "btnOK";
-            btnOK.Size = new Size(80, 30);
-            btnOK.TabIndex = 2;
-            btnOK.Text = "OK";
-            btnOK.UseVisualStyleBackColor = false;
-            // 
-            // btnCancel
-            // 
-            btnCancel.DialogResult = DialogResult.Cancel;
-            btnCancel.Location = new Point(20, 346);
-            btnCancel.Name = "btnCancel";
-            btnCancel.Size = new Size(80, 30);
-            btnCancel.TabIndex = 3;
-            btnCancel.Text = "Cancel";
-            btnCancel.UseVisualStyleBackColor = true;
+            btnAddBlacklist.BackColor = Color.Red;
+            btnAddBlacklist.FlatStyle = FlatStyle.Flat;
+            btnAddBlacklist.ForeColor = Color.White;
+            btnAddBlacklist.Location = new Point(346, 20);
+            btnAddBlacklist.Name = "btnAddBlacklist";
+            btnAddBlacklist.Size = new Size(120, 23);
+            btnAddBlacklist.TabIndex = 2;
+            btnAddBlacklist.Text = "Add to Banlist";
+            btnAddBlacklist.UseVisualStyleBackColor = false;
             // 
             // SettingsForm
             // 
@@ -423,5 +437,6 @@
         private NumericUpDown nudPrivateIPBanHours;
         private Button btnCancel;
         private Button btnOK;
+        private Button btnAddBlacklist;
     }
 }

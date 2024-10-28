@@ -11,10 +11,12 @@
 
         // IP Lists
         public List<IPEntry> WhitelistedIPs { get; set; }
+        public List<IPEntry> BlacklistedIPs { get; set; }
 
         public AppSettings()
         {
             WhitelistedIPs = new List<IPEntry>();
+            BlacklistedIPs = new List<IPEntry>();
         }
     }
 
@@ -24,5 +26,6 @@
         public string Type { get; set; } = "Whitelist";
         public DateTime AddedDate { get; set; }
         public bool IsEnabled { get; set; } = true;
+        public string Notes { get; set; } = string.Empty;
     }
 }

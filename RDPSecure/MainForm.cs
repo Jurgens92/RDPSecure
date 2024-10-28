@@ -47,13 +47,15 @@ public partial class MainForm : Form
             monitorService.LoginAttemptDetected += OnLoginAttemptDetected;
             monitorService.IPBanned += OnIPBanned;
 
-            AddSampleData();
+            // AddSampleData();
+            SetupContextMenu();
             SetupEventHandlers();
             UpdateUIFromSettings();
+            UpdateBannedIPsDisplay();
 
             // Start monitoring
             monitorService.StartMonitoring();
-            UpdateBannedIPsDisplay();
+            
         }
         catch (Exception ex)
         {
@@ -65,6 +67,145 @@ public partial class MainForm : Form
         }
     }
 
+
+    private void SetupContextMenu()
+    {
+        var contextMenu = new ContextMenuStrip();
+
+        // Remove IP option
+        var removeItem = new ToolStripMenuItem("Remove Ban");
+        removeItem.Click += OnRemoveBan;
+
+        // Add to Whitelist option
+        var whitelistItem = new ToolStripMenuItem("Add to Whitelist");
+        whitelistItem.Click += OnAddToWhitelist;
+
+        // Add items to context menu
+        contextMenu.Items.AddRange(new ToolStripItem[]
+        {
+            removeItem,
+            new ToolStripSeparator(),
+            whitelistItem
+        });
+
+        // Assign context menu to grid
+        gridBannedIPs.ContextMenuStrip = contextMenu;
+    }
+
+    private void OnRemoveBan(object? sender, EventArgs e)
+    {
+        if (gridBannedIPs.SelectedRows.Count > 0)
+        {
+            var row = gridBannedIPs.SelectedRows[0];
+            string ip = row.Cells[0].Value.ToString() ?? string.Empty;
+
+            if (string.IsNullOrEmpty(ip))
+                return;
+
+            var result = MessageBox.Show(
+                $"Are you sure you want to remove the ban for IP {ip}?",
+                "Confirm Ban Removal",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (result == DialogResult.Yes)
+            {
+                try
+                {
+                    monitorService.RemoveBan(ip);
+                    gridBannedIPs.Rows.Remove(row);
+
+                    // Update the counter
+                    if (int.TryParse(lblActiveBansCount.Text, out int count))
+                    {
+                        lblActiveBansCount.Text = (count - 1).ToString();
+                    }
+
+                    logger.LogInformation($"Ban removed for IP: {ip}");
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError("Error removing ban", ex);
+                    MessageBox.Show(
+                        $"Error removing ban: {ex.Message}",
+                        "Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
+            }
+        }
+    }
+
+    private void OnAddToWhitelist(object? sender, EventArgs e)
+    {
+        if (gridBannedIPs.SelectedRows.Count > 0)
+        {
+            var row = gridBannedIPs.SelectedRows[0];
+            string ip = row.Cells[0].Value.ToString() ?? string.Empty;
+
+            if (string.IsNullOrEmpty(ip))
+                return;
+
+            var result = MessageBox.Show(
+                $"Are you sure you want to add {ip} to the whitelist?\n\nThis will remove the ban and allow future connections from this IP.",
+                "Confirm Add to Whitelist",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (result == DialogResult.Yes)
+            {
+                try
+                {
+                    // First remove the ban
+                    monitorService.RemoveBan(ip);
+                    gridBannedIPs.Rows.Remove(row);
+
+                    // Update the banned counter
+                    if (int.TryParse(lblActiveBansCount.Text, out int count))
+                    {
+                        lblActiveBansCount.Text = (count - 1).ToString();
+                    }
+
+                    // Add to whitelist
+                    var entry = new IPEntry
+                    {
+                        IPAddress = ip,
+                        Type = "Whitelist",
+                        AddedDate = DateTime.Now,
+                        IsEnabled = true
+                    };
+
+                    // Load current settings, add the IP, and save
+                    var settings = SettingsManager.LoadSettings();
+                    settings.WhitelistedIPs.Add(entry);
+                    SettingsManager.SaveSettings(settings);
+
+                    // Update whitelist counter
+                    if (int.TryParse(lblWhitelistedCount.Text, out int whitelistCount))
+                    {
+                        lblWhitelistedCount.Text = (whitelistCount + 1).ToString();
+                    }
+
+                    logger.LogInformation($"IP {ip} removed from ban list and added to whitelist");
+
+                    MessageBox.Show(
+                        $"IP {ip} has been successfully added to the whitelist.",
+                        "Added to Whitelist",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError("Error managing IP whitelist", ex);
+                    MessageBox.Show(
+                        $"Error adding to whitelist: {ex.Message}",
+                        "Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
+            }
+        }
+    }
 
 
     private void OnLoginAttemptDetected(object? sender, LoginAttemptEventArgs e)
@@ -157,11 +298,10 @@ public partial class MainForm : Form
     {
         try
         {
-            using (var settingsForm = new SettingsForm())
+            using (var settingsForm = new SettingsForm(monitorService))
             {
                 if (settingsForm.ShowDialog(this) == DialogResult.OK)
                 {
-                    // Reload settings after dialog closes
                     settings = SettingsManager.LoadSettings();
                     logger.LogInformation("Settings reloaded in MainForm");
                     UpdateUIFromSettings();
