@@ -9,11 +9,11 @@ namespace RDPSecure.Services
     {
         private readonly AppSettings _settings;
         private readonly Dictionary<string, List<DateTime>> _loginAttempts;
-        private readonly HashSet<string> _bannedIPs;
+        private readonly Dictionary<string, BanInfo> _bannedIPs;
         private bool _isMonitoring;
         private readonly EventLog _eventLog;
+        private readonly ISecurityLogger _logger;
 
-        // Events that MainForm can subscribe to
         public event EventHandler<LoginAttemptEventArgs>? LoginAttemptDetected;
         public event EventHandler<IPBanEventArgs>? IPBanned;
 
@@ -22,8 +22,20 @@ namespace RDPSecure.Services
             try
             {
                 _settings = settings;
-                _loginAttempts = new Dictionary<string, List<DateTime>>();
-                _bannedIPs = new HashSet<string>();
+                _loginAttempts = new Dictionary<string, List<DateTime>>(StringComparer.OrdinalIgnoreCase);
+                _bannedIPs = new Dictionary<string, BanInfo>(StringComparer.OrdinalIgnoreCase);
+                _logger = new SecurityLogger();
+
+                // Load existing banned IPs
+                var savedBans = SettingsManager.LoadBannedIPs();
+                foreach (var ban in savedBans)
+                {
+                    _bannedIPs[ban.Key] = ban.Value;
+                    if (DateTime.Now < ban.Value.ExpiryTime)
+                    {
+                        AddFirewallRule(ban.Value.IPAddress);
+                    }
+                }
 
                 // Set up Windows Event Log monitoring
                 _eventLog = new EventLog("Security");
@@ -39,6 +51,41 @@ namespace RDPSecure.Services
                     MessageBoxIcon.Error
                 );
                 throw;
+            }
+        }
+
+        private void BanIP(string ipAddress)
+        {
+            if (!_bannedIPs.ContainsKey(ipAddress))
+            {
+                var duration = IsPrivateIP(ipAddress)
+                    ? TimeSpan.FromHours(_settings.PrivateIPBanHours)
+                    : TimeSpan.FromDays(_settings.PublicIPBanDays);
+
+                var banInfo = new BanInfo
+                {
+                    IPAddress = ipAddress,
+                    BanTime = DateTime.Now,
+                    Duration = duration,
+                    ExpiryTime = DateTime.Now.Add(duration),
+                    AttemptCount = _loginAttempts[ipAddress].Count
+                };
+
+                _bannedIPs[ipAddress] = banInfo;
+                AddFirewallRule(ipAddress);
+
+                // Save banned IPs to file
+                SettingsManager.SaveBannedIPs(_bannedIPs);
+
+                // Raise the ban event
+                IPBanned?.Invoke(this, new IPBanEventArgs
+                {
+                    IPAddress = ipAddress,
+                    BanTime = DateTime.Now,
+                    Duration = duration
+                });
+
+                _logger.LogInformation($"IP {ipAddress} banned for {duration.TotalHours:F1} hours");
             }
         }
 
@@ -85,7 +132,8 @@ namespace RDPSecure.Services
         private void ProcessLoginAttempt(string ipAddress)
         {
             // Skip if IP is whitelisted
-            if (_settings.WhitelistedIPs.Any(w => w.IPAddress == ipAddress))
+            if (_settings.WhitelistedIPs.Any(w =>
+                string.Equals(w.IPAddress, ipAddress, StringComparison.OrdinalIgnoreCase)))
             {
                 return;
             }
@@ -110,7 +158,7 @@ namespace RDPSecure.Services
 
         private void CheckForBan(string ipAddress)
         {
-            if (_bannedIPs.Contains(ipAddress))
+            if (_bannedIPs.ContainsKey(ipAddress))
                 return;
 
             var recentAttempts = _loginAttempts[ipAddress]
@@ -123,28 +171,7 @@ namespace RDPSecure.Services
             }
         }
 
-        private void BanIP(string ipAddress)
-        {
-            if (!_bannedIPs.Contains(ipAddress))
-            {
-                _bannedIPs.Add(ipAddress);
 
-                var duration = IsPrivateIP(ipAddress)
-                    ? TimeSpan.FromHours(_settings.PrivateIPBanHours)
-                    : TimeSpan.FromDays(_settings.PublicIPBanDays);
-
-                // Add Windows Firewall rule
-                AddFirewallRule(ipAddress);
-
-                // Raise the ban event
-                IPBanned?.Invoke(this, new IPBanEventArgs
-                {
-                    IPAddress = ipAddress,
-                    BanTime = DateTime.Now,
-                    Duration = duration
-                });
-            }
-        }
 
         private bool IsPrivateIP(string ipAddress)
         {
@@ -227,6 +254,18 @@ namespace RDPSecure.Services
                 Debug.WriteLine($"Error removing firewall rule: {ex.Message}");
             }
         }
+
+        public Dictionary<string, BanInfo> GetActiveBans()
+        {
+            return _bannedIPs
+                .Where(kvp => DateTime.Now < kvp.Value.ExpiryTime)
+                .ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value,
+                    StringComparer.OrdinalIgnoreCase
+                );
+        }
+
     }
 
 

@@ -1,14 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace RDPSecure
+﻿namespace RDPSecure
 {
     public class AppSettings
     {
-
         // Protection Settings
         public int MaxAttempts { get; set; } = 3;
         public int TimeWindow { get; set; } = 5;
@@ -17,9 +10,12 @@ namespace RDPSecure
         public bool BurstProtectionEnabled { get; set; } = true;
 
         // IP Lists
-        public List<IPEntry> WhitelistedIPs { get; set; } = new List<IPEntry>();
+        public List<IPEntry> WhitelistedIPs { get; set; }
 
-
+        public AppSettings()
+        {
+            WhitelistedIPs = new List<IPEntry>();
+        }
     }
 
     public class IPEntry
@@ -29,6 +25,4 @@ namespace RDPSecure
         public DateTime AddedDate { get; set; }
         public bool IsEnabled { get; set; } = true;
     }
-
-
 }

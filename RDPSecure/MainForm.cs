@@ -5,7 +5,29 @@ namespace RDPSecure;
 
 public partial class MainForm : Form
 {
-    
+
+
+    private void UpdateBannedIPsDisplay()
+    {
+        gridBannedIPs.Rows.Clear();
+        var activeBans = monitorService.GetActiveBans();
+
+        foreach (var ban in activeBans.Values)
+        {
+            gridBannedIPs.Rows.Add(
+                ban.IPAddress,
+                ban.Location,
+                ban.Duration.ToString(),
+                ban.AttemptCount.ToString(),
+                "Banned"
+            );
+        }
+
+        lblActiveBansCount.Text = activeBans.Count.ToString();
+    }
+
+
+
     private  AppSettings settings;
     private readonly RDPMonitorService monitorService;
     private readonly SecurityLogger logger;
@@ -31,6 +53,7 @@ public partial class MainForm : Form
 
             // Start monitoring
             monitorService.StartMonitoring();
+            UpdateBannedIPsDisplay();
         }
         catch (Exception ex)
         {

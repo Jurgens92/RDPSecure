@@ -1,25 +1,24 @@
 ﻿using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.IO;
 
 namespace RDPSecure
 {
     public static class SettingsManager
     {
-        private static readonly string SettingsPath = Path.Combine(
+        private static readonly string AppDataPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "RDPSecure",
-            "settings.json"
-            );
+            "RDPSecure"
+        );
+
+        private static readonly string SettingsPath = Path.Combine(AppDataPath, "settings.json");
+        private static readonly string BannedIPsPath = Path.Combine(AppDataPath, "banned_ips.json");
 
         public static AppSettings LoadSettings()
         {
             try
             {
-                EnsureSettingsFileExists(); // Add this line
+                EnsureDirectoryExists();
 
                 if (File.Exists(SettingsPath))
                 {
@@ -30,6 +29,11 @@ namespace RDPSecure
                         return settings;
                     }
                 }
+
+                // If file doesn't exist or is invalid, create default settings
+                var defaultSettings = new AppSettings();
+                SaveSettings(defaultSettings);
+                return defaultSettings;
             }
             catch (Exception ex)
             {
@@ -39,77 +43,89 @@ namespace RDPSecure
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning
                 );
+                return new AppSettings();
             }
-
-            // If anything fails, return default settings
-            var defaultSettings = new AppSettings();
-            SaveSettings(defaultSettings); // Save default settings if none exist
-            return defaultSettings;
         }
 
         public static void SaveSettings(AppSettings settings)
         {
             try
             {
-                string directory = Path.GetDirectoryName(SettingsPath)!;
-
-                // Debug message
-                MessageBox.Show($"Attempting to save to:\n{SettingsPath}", "Save Location");
-
-                // Ensure directory exists
-                if (!Directory.Exists(directory))
-                {
-                    Directory.CreateDirectory(directory);
-                    MessageBox.Show("Created directory", "Debug");
-                }
-
-                // Convert settings to JSON
+                EnsureDirectoryExists();
                 string json = JsonConvert.SerializeObject(settings, Formatting.Indented);
-
-                // Debug - show what we're about to save
-                MessageBox.Show($"About to save JSON:\n{json}", "Debug");
-
-                // Save the file
                 File.WriteAllText(SettingsPath, json);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Error saving settings: {ex.Message}",
+                    "Settings Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error
+                );
+            }
+        }
 
-                // Verify the save
-                if (File.Exists(SettingsPath))
+        // Add methods for banned IPs persistence
+        public static void SaveBannedIPs(Dictionary<string, BanInfo> bannedIPs)
+        {
+            try
+            {
+                EnsureDirectoryExists();
+                string json = JsonConvert.SerializeObject(bannedIPs, Formatting.Indented);
+                File.WriteAllText(BannedIPsPath, json);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Error saving banned IPs: {ex.Message}",
+                    "Save Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error
+                );
+            }
+        }
+
+        public static Dictionary<string, BanInfo> LoadBannedIPs()
+        {
+            try
+            {
+                if (File.Exists(BannedIPsPath))
                 {
-                    string savedContent = File.ReadAllText(SettingsPath);
-                    MessageBox.Show($"Verified saved content:\n{savedContent}", "Save Verification");
-                }
-                else
-                {
-                    throw new Exception("File was not created after save attempt");
+                    string json = File.ReadAllText(BannedIPsPath);
+                    var bannedIPs = JsonConvert.DeserializeObject<Dictionary<string, BanInfo>>(json);
+                    return bannedIPs ?? new Dictionary<string, BanInfo>();
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error saving settings:\n{ex.Message}\n\nStack Trace:\n{ex.StackTrace}", "Save Error");
-                throw;
+                MessageBox.Show(
+                    $"Error loading banned IPs: {ex.Message}",
+                    "Load Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning
+                );
             }
+            return new Dictionary<string, BanInfo>();
         }
 
         private static void EnsureDirectoryExists()
         {
-            string directory = Path.GetDirectoryName(SettingsPath)!;
-            if (!Directory.Exists(directory))
+            if (!Directory.Exists(AppDataPath))
             {
-                Directory.CreateDirectory(directory);
+                Directory.CreateDirectory(AppDataPath);
             }
         }
-
-        private static void EnsureSettingsFileExists()
-        {
-            if (!File.Exists(SettingsPath))
-            {
-                EnsureDirectoryExists();
-                // Create default settings file if it doesn't exist
-                SaveSettings(new AppSettings());
-            }
-        }
-
     }
 
-
+    // Add this class to store ban information
+    public class BanInfo
+    {
+        public string IPAddress { get; set; } = string.Empty;
+        public DateTime BanTime { get; set; }
+        public TimeSpan Duration { get; set; }
+        public DateTime ExpiryTime { get; set; }
+        public int AttemptCount { get; set; }
+        public string Location { get; set; } = "Detecting...";
+    }
 }
