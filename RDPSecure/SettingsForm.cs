@@ -17,8 +17,9 @@ namespace RDPSecure
             logger = new SecurityLogger();
             currentSettings = SettingsManager.LoadSettings();
 
-            SetupIPManagement();
             LoadSettingsToForm();
+            SetupIPManagement();
+            btnOK.Click += btnOK_Click;
         }
 
         private void SetupIPManagement()
