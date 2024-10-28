@@ -38,7 +38,7 @@ public partial class MainForm : Form
         try
         {
             InitializeComponent();
-
+            
             logger = new SecurityLogger();
             settings = SettingsManager.LoadSettings();
             monitorService = new RDPMonitorService(settings);
