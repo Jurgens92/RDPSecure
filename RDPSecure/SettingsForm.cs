@@ -1,4 +1,5 @@
-﻿using System;
+﻿using RDPSecure.Logging;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -12,94 +13,195 @@ namespace RDPSecure
 {
     public partial class SettingsForm : Form
     {
-        private AppSettings currentSettings;
-
+        private readonly AppSettings currentSettings;
+        private readonly SecurityLogger logger;
 
         public SettingsForm()
         {
             InitializeComponent();
-            SetupIPManagement();
-            InitializeSettings();
+            logger = new SecurityLogger();
+
+            // Load current settings first
+            logger.LogInformation("Loading settings from file...");
             currentSettings = SettingsManager.LoadSettings();
+            logger.LogInformation($"Loaded settings - MaxAttempts: {currentSettings.MaxAttempts}");
+
+
+            // Setup UI but DON'T set default values
+            SetupIPManagement();
+            SetupEventHandlers();  // Only setup event handlers
+
+            // Load the current settings into the form
+            logger.LogInformation("Loading settings into form controls...");
             LoadSettingsToForm();
+            logger.LogInformation($"Form loaded - MaxAttempts value: {nudMaxAttempts.Value}");
         }
         //---------------------------------------------------------------------------------------------------------
 
         private void LoadSettingsToForm()
         {
-            // Protection Settings
-            nudMaxAttempts.Value = currentSettings.MaxAttempts;
-            nudTimeWindow.Value = currentSettings.TimeWindow;
-            nudPrivateIPBanHours.Value = currentSettings.PrivateIPBanHours;
-            nudPublicIPBanDays.Value = currentSettings.PublicIPBanDays;
-            chkBurstProtection.Checked = currentSettings.BurstProtectionEnabled;
-
-            // Load IP List
-            gridIPList.Rows.Clear();
-            foreach (var ip in currentSettings.WhitelistedIPs)
+            try
             {
-                gridIPList.Rows.Add(
-                    ip.IPAddress,
-                    ip.Type,
-                    ip.AddedDate.ToString("yyyy-MM-dd HH:mm:ss"),
-                    ip.IsEnabled ? "Enabled" : "Disabled"
+                logger.LogInformation("Loading settings into form...");
+
+                // Protection Settings
+                nudMaxAttempts.Value = currentSettings.MaxAttempts;
+                logger.LogInformation($"Loaded MaxAttempts: {currentSettings.MaxAttempts}");
+
+                nudTimeWindow.Value = currentSettings.TimeWindow;
+                logger.LogInformation($"Loaded TimeWindow: {currentSettings.TimeWindow}");
+
+                nudPrivateIPBanHours.Value = currentSettings.PrivateIPBanHours;
+                logger.LogInformation($"Loaded PrivateIPBanHours: {currentSettings.PrivateIPBanHours}");
+
+                nudPublicIPBanDays.Value = currentSettings.PublicIPBanDays;
+                logger.LogInformation($"Loaded PublicIPBanDays: {currentSettings.PublicIPBanDays}");
+
+                chkBurstProtection.Checked = currentSettings.BurstProtectionEnabled;
+                logger.LogInformation($"Loaded BurstProtection: {currentSettings.BurstProtectionEnabled}");
+
+                // Load IP List
+                gridIPList.Rows.Clear();
+                logger.LogInformation("Cleared IP grid");
+
+                foreach (var ip in currentSettings.WhitelistedIPs)
+                {
+                    gridIPList.Rows.Add(
+                        ip.IPAddress,
+                        ip.Type,
+                        ip.AddedDate.ToString("yyyy-MM-dd HH:mm:ss"),
+                        ip.IsEnabled ? "Enabled" : "Disabled"
+                    );
+                    logger.LogInformation($"Added IP to grid: {ip.IPAddress} (Enabled: {ip.IsEnabled})");
+                }
+
+                logger.LogInformation("Settings loaded successfully into form");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError("Error loading settings into form", ex);
+                MessageBox.Show(
+                    $"Error loading settings: {ex.Message}",
+                    "Settings Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error
                 );
             }
         }
 
         private void SaveSettingsFromForm()
         {
-            // Protection Settings
-            currentSettings.MaxAttempts = (int)nudMaxAttempts.Value;
-            currentSettings.TimeWindow = (int)nudTimeWindow.Value;
-            currentSettings.PrivateIPBanHours = (int)nudPrivateIPBanHours.Value;
-            currentSettings.PublicIPBanDays = (int)nudPublicIPBanDays.Value;
-            currentSettings.BurstProtectionEnabled = chkBurstProtection.Checked;
-
-            // Save IP List
-            currentSettings.WhitelistedIPs.Clear();
-            foreach (DataGridViewRow row in gridIPList.Rows)
+            try
             {
-                currentSettings.WhitelistedIPs.Add(new IPEntry
-                {
-                    IPAddress = row.Cells["colIP"].Value?.ToString() ?? "",
-                    Type = row.Cells["colType"].Value?.ToString() ?? "Whitelist",
-                    AddedDate = DateTime.Parse(row.Cells["colAddedDate"].Value?.ToString() ?? DateTime.Now.ToString()),
-                    IsEnabled = row.Cells["colStatus"].Value?.ToString() == "Enabled"
-                });
-            }
+                // Protection Settings
+                currentSettings.MaxAttempts = (int)nudMaxAttempts.Value;
+                logger.LogInformation($"Saving MaxAttempts: {currentSettings.MaxAttempts}");
 
-            SettingsManager.SaveSettings(currentSettings);
+                currentSettings.TimeWindow = (int)nudTimeWindow.Value;
+                logger.LogInformation($"Saving TimeWindow: {currentSettings.TimeWindow}");
+
+                currentSettings.PrivateIPBanHours = (int)nudPrivateIPBanHours.Value;
+                logger.LogInformation($"Saving PrivateIPBanHours: {currentSettings.PrivateIPBanHours}");
+
+                currentSettings.PublicIPBanDays = (int)nudPublicIPBanDays.Value;
+                logger.LogInformation($"Saving PublicIPBanDays: {currentSettings.PublicIPBanDays}");
+
+                currentSettings.BurstProtectionEnabled = chkBurstProtection.Checked;
+                logger.LogInformation($"Saving BurstProtection: {currentSettings.BurstProtectionEnabled}");
+
+                // Save IP List
+                currentSettings.WhitelistedIPs.Clear();
+                logger.LogInformation("Cleared existing whitelist");
+
+                foreach (DataGridViewRow row in gridIPList.Rows)
+                {
+                    var ipEntry = new IPEntry
+                    {
+                        IPAddress = row.Cells["colIP"].Value?.ToString() ?? "",
+                        Type = row.Cells["colType"].Value?.ToString() ?? "Whitelist",
+                        AddedDate = DateTime.Parse(row.Cells["colAddedDate"].Value?.ToString() ?? DateTime.Now.ToString()),
+                        IsEnabled = row.Cells["colStatus"].Value?.ToString() == "Enabled"
+                    };
+
+                    currentSettings.WhitelistedIPs.Add(ipEntry);
+                    logger.LogInformation($"Added IP to whitelist: {ipEntry.IPAddress} (Enabled: {ipEntry.IsEnabled})");
+                }
+
+                logger.LogInformation("About to save settings to file...");
+                SettingsManager.SaveSettings(currentSettings);
+                logger.LogInformation("Settings saved successfully");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError("Error saving settings", ex);
+                MessageBox.Show(
+                    $"Error saving settings: {ex.Message}",
+                    "Settings Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error
+                );
+                throw;
+            }
         }
 
 
         private void btnOK_Click(object sender, EventArgs e)
         {
-            SaveSettingsFromForm();
-            DialogResult = DialogResult.OK;
-            Close();
-        }
+            try
+            {
+                // Debug message before saving
+                MessageBox.Show("Starting save process...", "Debug");
 
+                // Show current form values
+                string beforeSave = $"Form Values:\n" +
+                                  $"MaxAttempts: {nudMaxAttempts.Value}\n" +
+                                  $"TimeWindow: {nudTimeWindow.Value}\n" +
+                                  $"PrivateIPBanHours: {nudPrivateIPBanHours.Value}\n" +
+                                  $"PublicIPBanDays: {nudPublicIPBanDays.Value}\n" +
+                                  $"BurstProtection: {chkBurstProtection.Checked}";
+                MessageBox.Show(beforeSave, "Values Before Save");
+
+                SaveSettingsFromForm();
+
+                // Verify the save worked
+                var savedSettings = SettingsManager.LoadSettings();
+                string afterSave = $"Saved Values:\n" +
+                                 $"MaxAttempts: {savedSettings.MaxAttempts}\n" +
+                                 $"TimeWindow: {savedSettings.TimeWindow}\n" +
+                                 $"PrivateIPBanHours: {savedSettings.PrivateIPBanHours}\n" +
+                                 $"PublicIPBanDays: {savedSettings.PublicIPBanDays}\n" +
+                                 $"BurstProtection: {savedSettings.BurstProtectionEnabled}";
+                MessageBox.Show(afterSave, "Values After Save");
+
+                DialogResult = DialogResult.OK;
+                Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error in save process: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}", "Error");
+                logger.LogError("Error saving settings", ex);
+            }
+        }
 
         //------------------------------------------------------------------------------------------------------------------
-        private void InitializeSettings()
-        {
+     //   private void InitializeSettings()
+     //   {
             // Set default values
-            SetDefaultValues();
-            SetupEventHandlers();
-        }
+     //       SetDefaultValues();
+     //       SetupEventHandlers();
+     //   }
 
-        private void SetDefaultValues()
-        {
+    //    private void SetDefaultValues()
+    //    {
             // Failed Login Attempts
-            nudMaxAttempts.Value = 3;
-            nudTimeWindow.Value = 5;
+    //        nudMaxAttempts.Value = 3;
+    //        nudTimeWindow.Value = 5;
 
             // Ban Duration Settings
-            nudPrivateIPBanHours.Value = 1;
-            nudPublicIPBanDays.Value = 30;
-            chkBurstProtection.Checked = true;
-        }
+    //        nudPrivateIPBanHours.Value = 1;
+    //        nudPublicIPBanDays.Value = 30;
+    //       chkBurstProtection.Checked = true;
+    //   }
 
         private void SetupEventHandlers()
         {
@@ -275,17 +377,6 @@ namespace RDPSecure
             }
         }
         //end of IP validation--------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-
 
 
 

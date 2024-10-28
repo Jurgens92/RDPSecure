@@ -1,16 +1,85 @@
+using RDPSecure.Logging;
+using RDPSecure.Services;
+
 namespace RDPSecure;
 
 public partial class MainForm : Form
 {
-    private AppSettings settings;
+    
+    private  AppSettings settings;
+    private readonly RDPMonitorService monitorService;
+    private readonly SecurityLogger logger;
+
+
     public MainForm()
     {
-        InitializeComponent();
-        AddSampleData();
-        SetupEventHandlers();
-        settings = SettingsManager.LoadSettings();
-        SetupEventHandlers();
-        UpdateUIFromSettings();
+        try
+        {
+            InitializeComponent();
+
+            logger = new SecurityLogger();
+            settings = SettingsManager.LoadSettings();
+            monitorService = new RDPMonitorService(settings);
+
+            // Subscribe to events
+            monitorService.LoginAttemptDetected += OnLoginAttemptDetected;
+            monitorService.IPBanned += OnIPBanned;
+
+            AddSampleData();
+            SetupEventHandlers();
+            UpdateUIFromSettings();
+
+            // Start monitoring
+            monitorService.StartMonitoring();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error initializing application: {ex.Message}",
+                "Initialization Error",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+            throw;
+        }
+    }
+
+
+
+    private void OnLoginAttemptDetected(object? sender, LoginAttemptEventArgs e)
+    {
+        BeginInvoke(() => {
+            try
+            {
+                lblRecentAttemptsCount.Text =
+                    (int.Parse(lblRecentAttemptsCount.Text) + 1).ToString();
+            }
+            catch (Exception ex)
+            {
+                logger.LogError("Error updating attempt count", ex);
+            }
+        });
+    }
+
+    private void OnIPBanned(object? sender, IPBanEventArgs e)
+    {
+        BeginInvoke(() => {
+            try
+            {
+                lblActiveBansCount.Text =
+                    (int.Parse(lblActiveBansCount.Text) + 1).ToString();
+
+                gridBannedIPs.Rows.Add(
+                    e.IPAddress,
+                    "Detecting...",
+                    e.Duration.ToString(),
+                    "Max attempts exceeded",
+                    "Banned"
+                );
+            }
+            catch (Exception ex)
+            {
+                logger.LogError("Error updating banned IPs", ex);
+            }
+        });
     }
 
 
@@ -20,15 +89,11 @@ public partial class MainForm : Form
         lblWhitelistedCount.Text = settings.WhitelistedIPs.Count.ToString();
     }
 
-        private void SetupEventHandlers()
+    private void SetupEventHandlers()
     {
-
-
         //button clicks
         btnSettings.Click += OnOpenSettings;
         btnExit.Click += OnExit;
-
-
 
         //tooltip clicks
         toolStripMenuItem1.Click += OnOpenDashboard;  // Open Dashboard
@@ -36,8 +101,7 @@ public partial class MainForm : Form
         exitToolStripMenuItem.Click += OnExit;  // Exit
         notifyIconRDPSecure.DoubleClick += OnOpenDashboard; //Open Dashboard
 
-
-        // system tray icon------------------------------------
+        // system tray icon
         contextMenuTray.Items.Clear();
         var openItem = new ToolStripMenuItem("Open Dashboard");
         openItem.Click += OnOpenDashboard;
@@ -50,18 +114,15 @@ public partial class MainForm : Form
         var exitItem = new ToolStripMenuItem("Exit");
         exitItem.Click += OnExit;
         contextMenuTray.Items.Add(exitItem);
-        // end of tray icon--------------------------------------
-
 
         // Configure notify icon
         notifyIconRDPSecure.Icon = SystemIcons.Shield;
         notifyIconRDPSecure.ContextMenuStrip = contextMenuTray;
         notifyIconRDPSecure.Visible = true;
-        notifyIconRDPSecure.DoubleClick += OnOpenDashboard;
     }
 
 
-    private void OnOpenDashboard(object sender, EventArgs e)
+    private void OnOpenDashboard(object? sender, EventArgs e)
     {
         Show();
         WindowState = FormWindowState.Normal;
@@ -69,21 +130,34 @@ public partial class MainForm : Form
     }
 
 
-    private void OnOpenSettings(object sender, EventArgs e)
+    private void OnOpenSettings(object? sender, EventArgs e)
     {
-        using (var settingsForm = new SettingsForm())
+        try
         {
-            if (settingsForm.ShowDialog(this) == DialogResult.OK)
+            using (var settingsForm = new SettingsForm())
             {
-                // Reload settings after dialog closes
-                settings = SettingsManager.LoadSettings();
-                UpdateUIFromSettings();
+                if (settingsForm.ShowDialog(this) == DialogResult.OK)
+                {
+                    // Reload settings after dialog closes
+                    settings = SettingsManager.LoadSettings();
+                    logger.LogInformation("Settings reloaded in MainForm");
+                    UpdateUIFromSettings();
+                }
             }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError("Error handling settings dialog", ex);
+            MessageBox.Show(
+                "Error updating settings: " + ex.Message,
+                "Settings Error",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error
+            );
         }
     }
 
-
-    private void OnExit(object sender, EventArgs e)
+    private void OnExit(object? sender, EventArgs e)
     {
         notifyIconRDPSecure.Visible = false;
         Application.Exit();
@@ -96,10 +170,19 @@ public partial class MainForm : Form
         {
             e.Cancel = true;
             Hide();
-            notifyIconRDPSecure.ShowBalloonTip(2000, "RDPSecure Notification",
+            notifyIconRDPSecure.ShowBalloonTip(
+                2000,
+                "RDPSecure Notification",
                 "Application is still running in the system tray.",
-                ToolTipIcon.Info);
+                ToolTipIcon.Info
+            );
         }
+        else
+        {
+            monitorService.StopMonitoring();
+        }
+
+        base.OnFormClosing(e);
     }
 
 

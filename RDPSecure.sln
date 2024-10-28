@@ -5,8 +5,6 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RDPSecure", "RDPSecure\RDPSecure.csproj", "{6289A1A2-E393-4C39-8684-85A7FA7154BD}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RDPSecure.Service", "RDPSecure.Service\RDPSecure.Service.csproj", "{5BD34654-0911-4C49-959E-EB544173EA19}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

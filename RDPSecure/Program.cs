@@ -1,16 +1,25 @@
+using Microsoft.Extensions.DependencyInjection;
+using RDPSecure.Services;
+using RDPSecure.Logging;
+
 namespace RDPSecure;
 
 static class Program
 {
-    /// <summary>
-    ///  The main entry point for the application.
-    /// </summary>
     [STAThread]
     static void Main()
     {
-        // To customize application configuration such as set high DPI settings or default font,
-        // see https://aka.ms/applicationconfiguration.
-        ApplicationConfiguration.Initialize();
-        Application.Run(new MainForm());
-    }    
+        try
+        {
+            ApplicationConfiguration.Initialize();
+            Application.Run(new MainForm());
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Application Error: {ex.Message}\n\nDetails: {ex.StackTrace}",
+                "RDPSecure Error",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
+    }
 }

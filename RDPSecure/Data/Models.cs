@@ -8,34 +8,69 @@ namespace RDPSecure.Data;
 
 public class AppSettings
 {
-    public ProtectionSettings Protection { get; set; } = new();
-    public SystemSettings System { get; set; } = new();
+    public ProtectionSettings Protection { get; set; }
+    public SystemSettings System { get; set; }
+    public List<IPEntry> WhitelistedIPs { get; set; }
+
+    public AppSettings()
+    {
+        Protection = new ProtectionSettings();
+        System = new SystemSettings();
+        WhitelistedIPs = new List<IPEntry>();
+    }
 }
 
 public class ProtectionSettings
 {
-    public int MaxAttempts { get; set; } = 3;
-    public int TimeWindow { get; set; } = 5;
-    public int PrivateIPBanHours { get; set; } = 1;
-    public int PublicIPBanDays { get; set; } = 30;
-    public bool BurstProtectionEnabled { get; set; } = true;
+    public int MaxAttempts { get; set; }
+    public int TimeWindow { get; set; }
+    public int PrivateIPBanHours { get; set; }
+    public int PublicIPBanDays { get; set; }
+    public bool BurstProtectionEnabled { get; set; }
+
+    public ProtectionSettings()
+    {
+        MaxAttempts = 3;
+        TimeWindow = 5;
+        PrivateIPBanHours = 1;
+        PublicIPBanDays = 30;
+        BurstProtectionEnabled = true;
+    }
 }
 
 public class SystemSettings
 {
-    public int LogRetentionDays { get; set; } = 30;
-    public bool StartWithWindows { get; set; } = true;
-    public bool MinimizeToTray { get; set; } = true;
+    public int LogRetentionDays { get; set; }
+    public bool StartWithWindows { get; set; }
+    public bool MinimizeToTray { get; set; }
+
+    public SystemSettings()
+    {
+        LogRetentionDays = 30;
+        StartWithWindows = true;
+        MinimizeToTray = true;
+    }
 }
 
 public class IPEntry
 {
-    public string IPAddress { get; set; } = string.Empty;
-    public string Type { get; set; } = "Whitelist"; // Whitelist or Blacklist
+    public string IPAddress { get; set; }
+    public string Type { get; set; }
     public DateTime AddedDate { get; set; }
     public DateTime? ExpiryDate { get; set; }
-    public bool IsEnabled { get; set; } = true;
-    public string AddedBy { get; set; } = "System";
-    public string Reason { get; set; } = string.Empty;
-    public int AttemptCount { get; set; } = 0;
+    public bool IsEnabled { get; set; }
+    public string AddedBy { get; set; }
+    public string Reason { get; set; }
+    public int AttemptCount { get; set; }
+
+    public IPEntry()
+    {
+        IPAddress = string.Empty;
+        Type = "Whitelist";
+        AddedDate = DateTime.Now;
+        IsEnabled = true;
+        AddedBy = "System";
+        Reason = string.Empty;
+        AttemptCount = 0;
+    }
 }
