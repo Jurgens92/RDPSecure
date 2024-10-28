@@ -7,6 +7,7 @@ namespace RDPSecure.Services
 {
     public class RDPMonitorService : IRDPMonitorService
     {
+        private readonly IPLocationService _locationService;
         private const string FIREWALL_RULE_NAME = "RDPSecure-Blocked-IPs";
         private readonly AppSettings _settings;
         private readonly Dictionary<string, List<DateTime>> _loginAttempts;
@@ -15,6 +16,7 @@ namespace RDPSecure.Services
         private readonly EventLog _eventLog;
         private readonly ISecurityLogger _logger;
 
+        public event EventHandler<IPLocationEventArgs>? IPLocationUpdated;
         public event EventHandler<LoginAttemptEventArgs>? LoginAttemptDetected;
         public event EventHandler<IPBanEventArgs>? IPBanned;
 
@@ -32,32 +34,45 @@ namespace RDPSecure.Services
 
         public void AddManualBan(string ipAddress, TimeSpan duration)
         {
-            // Check whitelist before manual ban
-            if (IsWhitelisted(ipAddress))
+            try
             {
-                MessageBox.Show(
-                    $"Cannot ban {ipAddress} as it is whitelisted. Remove from whitelist first.",
-                    "Whitelist Conflict",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-                return;
-            }
+                // Check whitelist before manual ban
+                if (IsWhitelisted(ipAddress))
+                {
+                    MessageBox.Show(
+                        $"Cannot ban {ipAddress} as it is whitelisted. Remove from whitelist first.",
+                        "Whitelist Conflict",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return;
+                }
 
-            if (!_bannedIPs.ContainsKey(ipAddress))
-            {
+                // Check if already banned
+                if (_bannedIPs.ContainsKey(ipAddress))
+                {
+                    // If it's a "ghost" entry (not in JSON), remove it first
+                    RemoveBan(ipAddress);
+                }
+
                 var banInfo = new BanInfo
                 {
                     IPAddress = ipAddress,
                     BanTime = DateTime.Now,
                     Duration = duration,
                     ExpiryTime = DateTime.Now.Add(duration),
-                    AttemptCount = 0
+                    AttemptCount = 0,
+                    Location = "Detecting..."
                 };
 
                 _bannedIPs[ipAddress] = banInfo;
+
+                // Update firewall
                 UpdateFirewallRule();
+
+                // Save to JSON immediately
                 SettingsManager.SaveBannedIPs(_bannedIPs);
 
+                // Raise the ban event
                 IPBanned?.Invoke(this, new IPBanEventArgs
                 {
                     IPAddress = ipAddress,
@@ -65,9 +80,22 @@ namespace RDPSecure.Services
                     Duration = duration
                 });
 
-                _logger.LogInformation($"IP {ipAddress} manually banned");
+                // Start location lookup
+                _ = UpdateLocationForIP(ipAddress);
+
+                _logger.LogInformation($"IP {ipAddress} manually banned by user XYZ for {duration.TotalMinutes} minutes");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error adding manual ban for IP {ipAddress}: {ex.Message}");
+                MessageBox.Show(
+                    $"An error occurred while banning {ipAddress}. Please try again.",
+                    "Ban Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
             }
         }
+
 
 
         public RDPMonitorService(AppSettings settings)
@@ -79,12 +107,16 @@ namespace RDPSecure.Services
                 _bannedIPs = new Dictionary<string, BanInfo>(StringComparer.OrdinalIgnoreCase);
                 _logger = new SecurityLogger();
 
+                _locationService = new IPLocationService(_logger);
+
                 // Load existing banned IPs
                 var savedBans = SettingsManager.LoadBannedIPs();
                 foreach (var ban in savedBans)
                 {
                     _bannedIPs[ban.Key] = ban.Value;
                 }
+
+                UpdateLocationsForExistingBans();
 
                 // Initialize or update the firewall rule
                 UpdateFirewallRule();
@@ -106,17 +138,63 @@ namespace RDPSecure.Services
             }
         }
 
+
+        private async void UpdateLocationsForExistingBans()
+        {
+            foreach (var ban in _bannedIPs.Values)
+            {
+                if (ban.Location == "Detecting..." || ban.Location == "Unknown")
+                {
+                    await UpdateLocationForIP(ban.IPAddress);
+                }
+            }
+        }
+
+        private async Task UpdateLocationForIP(string ipAddress)
+        {
+            try
+            {
+                if (_bannedIPs.TryGetValue(ipAddress, out var banInfo))
+                {
+                    string location = await _locationService.GetIPLocation(ipAddress);
+                    banInfo.Location = location;
+
+                    // Notify UI of location update
+                    IPLocationUpdated?.Invoke(this, new IPLocationEventArgs
+                    {
+                        IPAddress = ipAddress,
+                        Location = location
+                    });
+
+                    // Save updated ban info
+                    SettingsManager.SaveBannedIPs(_bannedIPs);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error updating location for IP {ipAddress}: {ex.Message}");
+            }
+        }
+
+
         private void BanIP(string ipAddress)
         {
-            // Final whitelist check before banning
-            if (IsWhitelisted(ipAddress))
+            try
             {
-                _logger.LogInformation($"Prevented ban of whitelisted IP: {ipAddress}");
-                return;
-            }
+                // Final whitelist check before banning
+                if (IsWhitelisted(ipAddress))
+                {
+                    _logger.LogInformation($"Prevented ban of whitelisted IP: {ipAddress}");
+                    return;
+                }
 
-            if (!_bannedIPs.ContainsKey(ipAddress))
-            {
+                // Check if already banned
+                if (_bannedIPs.ContainsKey(ipAddress))
+                {
+                    // If it's a "ghost" entry (not in JSON), remove it first
+                    RemoveBan(ipAddress);
+                }
+
                 var duration = IsPrivateIP(ipAddress)
                     ? TimeSpan.FromHours(_settings.PrivateIPBanHours)
                     : TimeSpan.FromDays(_settings.PublicIPBanDays);
@@ -128,13 +206,19 @@ namespace RDPSecure.Services
                     Duration = duration,
                     ExpiryTime = DateTime.Now.Add(duration),
                     AttemptCount = _loginAttempts.ContainsKey(ipAddress) ?
-                        _loginAttempts[ipAddress].Count : 0
+                        _loginAttempts[ipAddress].Count : 0,
+                    Location = "Detecting..."
                 };
 
                 _bannedIPs[ipAddress] = banInfo;
+
+                // Update firewall
                 UpdateFirewallRule();
+
+                // Save to JSON immediately
                 SettingsManager.SaveBannedIPs(_bannedIPs);
 
+                // Raise the ban event
                 IPBanned?.Invoke(this, new IPBanEventArgs
                 {
                     IPAddress = ipAddress,
@@ -142,9 +226,54 @@ namespace RDPSecure.Services
                     Duration = duration
                 });
 
+                // Start location lookup
+                _ = UpdateLocationForIP(ipAddress);
+
                 _logger.LogInformation($"IP {ipAddress} banned for {duration.TotalHours:F1} hours");
             }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error banning IP {ipAddress}: {ex.Message}");
+                throw;
+            }
         }
+
+
+
+        public bool IsIPBanned(string ipAddress)
+        {
+            // Check both memory and file
+            var bannedIPs = SettingsManager.LoadBannedIPs();
+            return _bannedIPs.ContainsKey(ipAddress) || bannedIPs.ContainsKey(ipAddress);
+        }
+
+        public void CleanupBannedIPs()
+        {
+            try
+            {
+                // Load from file
+                var savedBans = SettingsManager.LoadBannedIPs();
+
+                // Synchronize memory with file
+                _bannedIPs.Clear();
+                foreach (var ban in savedBans)
+                {
+                    _bannedIPs[ban.Key] = ban.Value;
+                }
+
+                // Update firewall rules
+                UpdateFirewallRule();
+
+                _logger.LogInformation("Banned IPs cleaned up and synchronized with file");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Error cleaning up banned IPs", ex);
+                throw;
+            }
+        }
+
+
 
         public void StartMonitoring()
         {
@@ -243,11 +372,30 @@ namespace RDPSecure.Services
 
         public void RemoveBan(string ipAddress)
         {
-            if (_bannedIPs.Remove(ipAddress))
+            try
             {
-                UpdateFirewallRule();
-                SettingsManager.SaveBannedIPs(_bannedIPs);
-                _logger.LogInformation($"Ban removed for IP: {ipAddress}");
+                // Remove from banned IPs dictionary
+                if (_bannedIPs.Remove(ipAddress))
+                {
+                    // Remove from login attempts tracking
+                    if (_loginAttempts.ContainsKey(ipAddress))
+                    {
+                        _loginAttempts.Remove(ipAddress);
+                    }
+
+                    // Update firewall rule
+                    UpdateFirewallRule();
+
+                    // Save the updated banned IPs list to JSON
+                    SettingsManager.SaveBannedIPs(_bannedIPs);
+
+                    _logger.LogInformation($"Ban removed for IP: {ipAddress}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error removing ban for IP {ipAddress}: {ex.Message}");
+                throw;
             }
         }
 
@@ -471,6 +619,12 @@ namespace RDPSecure.Services
                     kvp => kvp.Value,
                     StringComparer.OrdinalIgnoreCase
                 );
+        }
+
+        public class IPLocationEventArgs : EventArgs
+        {
+            public string IPAddress { get; set; } = string.Empty;
+            public string Location { get; set; } = string.Empty;
         }
 
     }
