@@ -76,7 +76,7 @@ namespace RDPSecure.Services
                     Duration = duration,
                     ExpiryTime = DateTime.Now.Add(duration),
                     AttemptCount = 0,
-                    Location = "Detecting..."
+                    Location = IsPrivateIP(ipAddress) ? "Private" : "Detecting..."  // Set Private immediately for private IPs
                 };
 
                 lock (_bannedIPs)
@@ -190,14 +190,22 @@ namespace RDPSecure.Services
             {
                 if (_bannedIPs.TryGetValue(ipAddress, out var banInfo))
                 {
-                    string location = await _locationService.GetIPLocation(ipAddress);
-                    banInfo.Location = location;
+                    // Check if it's a private IP first
+                    if (IsPrivateIP(ipAddress))
+                    {
+                        banInfo.Location = "Private";
+                    }
+                    else
+                    {
+                        string location = await _locationService.GetIPLocation(ipAddress);
+                        banInfo.Location = location;
+                    }
 
                     // Notify UI of location update
                     IPLocationUpdated?.Invoke(this, new IPLocationEventArgs
                     {
                         IPAddress = ipAddress,
-                        Location = location
+                        Location = banInfo.Location
                     });
 
                     // Save updated ban info
@@ -244,8 +252,8 @@ namespace RDPSecure.Services
                         Duration = duration,
                         ExpiryTime = DateTime.Now.Add(duration),
                         AttemptCount = _loginAttempts.ContainsKey(ipAddress) ?
-                            _loginAttempts[ipAddress].Count : 0,
-                        Location = "Detecting..."
+                        _loginAttempts[ipAddress].Count : 0,
+                        Location = IsPrivateIP(ipAddress) ? "Private" : "Detecting..."  // Set Private immediately for private IPs
                     };
 
                     // Add the ban
