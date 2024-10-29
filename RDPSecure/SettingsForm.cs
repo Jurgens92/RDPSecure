@@ -11,6 +11,7 @@ namespace RDPSecure
         private readonly AppSettings currentSettings;
         private readonly SecurityLogger logger;
         private readonly RDPMonitorService monitorService;
+        private System.Windows.Forms.Timer? firewallTimer;
 
         public SettingsForm(RDPMonitorService monitorService)
         {
@@ -100,7 +101,7 @@ namespace RDPSecure
         }
 
 
-        private void OnAddBlacklist(object sender, EventArgs e)
+        private void OnAddBlacklist(object? sender, EventArgs e)
         {
             string ip = txtIPAddress.Text.Trim();
 
@@ -153,35 +154,6 @@ namespace RDPSecure
                 return;
             }
 
-            // Ask for optional notes
-            string notes = "";
-            using (var noteForm = new Form())
-            {
-                noteForm.Text = "Add Notes";
-                noteForm.Size = new Size(400, 200);
-                noteForm.StartPosition = FormStartPosition.CenterParent;
-
-                var textBox = new TextBox
-                {
-                    Multiline = true,
-                    Size = new Size(350, 100),
-                    Location = new Point(15, 15)
-                };
-
-                var okButton = new Button
-                {
-                    Text = "OK",
-                    DialogResult = DialogResult.OK,
-                    Location = new Point(290, 125)
-                };
-
-                noteForm.Controls.AddRange(new Control[] { textBox, okButton });
-                if (noteForm.ShowDialog() == DialogResult.OK)
-                {
-                    notes = textBox.Text;
-                }
-            }
-
             // Add to blacklist
             var entry = new IPEntry
             {
@@ -189,7 +161,7 @@ namespace RDPSecure
                 Type = "Blacklist",
                 AddedDate = DateTime.Now,
                 IsEnabled = true,
-                Notes = notes
+                Notes = string.Empty  // Empty notes
             };
 
             currentSettings.BlacklistedIPs.Add(entry);
@@ -209,7 +181,7 @@ namespace RDPSecure
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
 
-            logger.LogInformation($"IP {ip} manually added to blacklist. Notes: {notes}");
+            logger.LogInformation($"IP {ip} manually added to blacklist");
         }
 
         private void SetupWhitelistManagement()
@@ -241,7 +213,9 @@ namespace RDPSecure
             txtIPAddress.BackColor = isValid ? Color.White : Color.MistyRose;
         }
 
-        private void OnAddWhitelist(object sender, EventArgs e)
+
+
+        private void OnAddWhitelist(object? sender, EventArgs e)
         {
             string ip = txtIPAddress.Text.Trim();
 
@@ -290,9 +264,15 @@ namespace RDPSecure
             // Clear the input
             txtIPAddress.Clear();
             logger.LogInformation($"IP {ip} added to whitelist");
+
+            // Refresh the main form's whitelist count
+            if (Owner is MainForm mainForm)
+            {
+                mainForm.BeginInvoke(() => mainForm.UpdateUIFromSettings());
+            }
         }
 
-        private void OnRemoveFromWhitelist(object sender, EventArgs e)
+        private void OnRemoveFromWhitelist(object? sender, EventArgs e)
         {
             if (gridIPList.SelectedRows.Count > 0)
             {
@@ -442,7 +422,7 @@ namespace RDPSecure
             }
         }
 
-        private void btnOK_Click(object sender, EventArgs e)
+        private void btnOK_Click(object? sender, EventArgs e)
         {
             try
             {
@@ -474,9 +454,22 @@ namespace RDPSecure
                 );
             }
         }
+
+        public void SelectIPManagementTab()
+        {
+            tabControlSettings.SelectedTab = tabIPManagement;
+        }
+
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             base.OnFormClosing(e);
+
+            // Stop and dispose of the firewall timer
+            if (firewallTimer != null)
+            {
+                firewallTimer.Stop();
+                firewallTimer.Dispose();
+            }
 
             if (DialogResult == DialogResult.OK)
             {
@@ -553,6 +546,84 @@ namespace RDPSecure
                 Parent = groupBoxService
             };
 
+            var groupBoxFirewall = new GroupBox
+            {
+                Text = "Firewall Status",
+                Location = new Point(20, 160), // Position below service management
+                Size = new Size(520, 100),
+                Parent = tabSystem
+            };
+
+            // Firewall status label
+            var lblFirewallStatusText = new Label
+            {
+                Text = "Windows Firewall:",
+                Location = new Point(20, 30),
+                AutoSize = true,
+                Parent = groupBoxFirewall
+            };
+
+            var lblFirewallStatus = new Label
+            {
+                Location = new Point(130, 30),
+                AutoSize = true,
+                Parent = groupBoxFirewall
+            };
+
+            // Enable firewall button
+            var btnEnableFirewall = new Button
+            {
+                Text = "Enable Firewall",
+                Location = new Point(20, 60),
+                Size = new Size(120, 30),
+                Visible = false,
+                Parent = groupBoxFirewall
+            };
+
+            // Add click handler for the enable button
+            btnEnableFirewall.Click += async (s, e) =>
+            {
+                try
+                {
+                    var result = MessageBox.Show(
+                        "Windows Firewall is currently disabled. Would you like to enable it?\n\n" +
+                        "Note: This requires administrator privileges.",
+                        "Enable Windows Firewall",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Question);
+
+                    if (result == DialogResult.Yes)
+                    {
+                        await Task.Run(() =>
+                        {
+                            EnableWindowsFirewall();
+                            this.BeginInvoke(() => UpdateFirewallStatus(lblFirewallStatus, btnEnableFirewall));
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(
+                        "Error enabling firewall: " + ex.Message,
+                        "Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
+            };
+
+            // Timer to update firewall status
+            firewallTimer = new System.Windows.Forms.Timer
+            {
+                Interval = 5000  // Check every 5 seconds
+            };
+
+            firewallTimer.Tick += (s, e) => UpdateFirewallStatus(lblFirewallStatus, btnEnableFirewall);
+            firewallTimer.Start();
+
+            // Initial status check
+            UpdateFirewallStatus(lblFirewallStatus, btnEnableFirewall);
+
+
             // Add click handlers
             btnInstall.Click += async (s, e) => await InstallServiceAsync();
             btnUninstall.Click += async (s, e) => await UninstallServiceAsync();
@@ -569,6 +640,25 @@ namespace RDPSecure
 
             // Initial status check
             UpdateServiceStatus(lblStatus, btnStartStop, btnInstall, btnUninstall);
+        }
+
+        private void UpdateFirewallStatus(Label statusLabel, Button enableButton)
+        {
+            bool isEnabled = IsWindowsFirewallEnabled();
+
+            statusLabel.Text = isEnabled ? "Enabled" : "Disabled";
+            statusLabel.ForeColor = isEnabled ? Color.Green : Color.Red;
+            enableButton.Visible = !isEnabled;
+
+            // Show notification if firewall is disabled
+            if (!isEnabled && WindowState == FormWindowState.Normal)
+            {
+                MessageBox.Show(
+                    "Windows Firewall is currently disabled. It is recommended to enable the firewall for proper protection.",
+                    "Firewall Warning",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
         }
 
         private void UpdateServiceStatus(Label statusLabel, Button startStopButton, Button installButton, Button uninstallButton)
@@ -610,7 +700,7 @@ namespace RDPSecure
 
             try
             {
-                Program.InstallService();
+                await Task.Run(() => Program.InstallService());
                 MessageBox.Show("Service installed successfully!", "Success",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
@@ -631,7 +721,7 @@ namespace RDPSecure
 
             try
             {
-                Program.UninstallService();
+                await Task.Run(() => Program.UninstallService());
                 MessageBox.Show("Service uninstalled successfully!", "Success",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
@@ -653,18 +743,20 @@ namespace RDPSecure
 
             try
             {
-                using var controller = new ServiceController("RDPSecure");
-
-                if (controller.Status == ServiceControllerStatus.Running)
+                await Task.Run(() =>
                 {
-                    controller.Stop();
-                    await Task.Run(() => controller.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30)));
-                }
-                else if (controller.Status == ServiceControllerStatus.Stopped)
-                {
-                    controller.Start();
-                    await Task.Run(() => controller.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30)));
-                }
+                    using var controller = new ServiceController("RDPSecure");
+                    if (controller.Status == ServiceControllerStatus.Running)
+                    {
+                        controller.Stop();
+                        controller.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
+                    }
+                    else if (controller.Status == ServiceControllerStatus.Stopped)
+                    {
+                        controller.Start();
+                        controller.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -673,11 +765,75 @@ namespace RDPSecure
             }
         }
 
+        private bool IsWindowsFirewallEnabled()
+        {
+            try
+            {
+                using var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "netsh",
+                        Arguments = "advfirewall show allprofiles",
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        CreateNoWindow = true
+                    }
+                };
+
+                process.Start();
+                string output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+
+                // Check if any profile is disabled
+                return !output.Contains("State                                 OFF");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError("Error checking firewall status", ex);
+                return false;
+            }
+        }
+
+        private void EnableWindowsFirewall()
+        {
+            try
+            {
+                using var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "netsh",
+                        Arguments = "advfirewall set allprofiles state on",
+                        UseShellExecute = true,
+                        Verb = "runas" // This will prompt for admin rights
+                    }
+                };
+
+                process.Start();
+                process.WaitForExit();
+            }
+            catch (Exception ex)
+            {
+                logger.LogError("Error enabling firewall", ex);
+                throw;
+            }
+        }
+
+
+
         private bool IsAdministrator()
         {
             var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
             var principal = new System.Security.Principal.WindowsPrincipal(identity);
             return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
         }
+
+
+
+
+
+
+
     }
 }

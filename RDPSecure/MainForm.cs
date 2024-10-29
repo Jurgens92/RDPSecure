@@ -249,11 +249,27 @@ public partial class MainForm : Form
     }
 
 
-    private void UpdateUIFromSettings()
+    public void UpdateUIFromSettings()
     {
         // Update whitelisted count
-        lblWhitelistedCount.Text = settings.WhitelistedIPs.Count.ToString();
+        UpdateWhitelistCount();
     }
+
+
+    private void UpdateWhitelistCount()
+    {
+        try
+        {
+            var currentSettings = SettingsManager.LoadSettings();
+            lblWhitelistedCount.Text = currentSettings.WhitelistedIPs.Count.ToString();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError("Error updating whitelist count", ex);
+        }
+    }
+
+
 
     private void SetupEventHandlers()
     {
@@ -266,6 +282,17 @@ public partial class MainForm : Form
         settingsToolStripMenuItem.Click += OnOpenSettings;  // Settings
         exitToolStripMenuItem.Click += OnExit;  // Exit
         notifyIconRDPSecure.DoubleClick += OnOpenDashboard; //Open Dashboard
+
+
+        // whitelist click
+        panelWhitelisted.Click += OnOpenWhitelistSettings;
+        lblWhitelistedCount.Click += OnOpenWhitelistSettings;
+        lblWhitelistedTitle.Click += OnOpenWhitelistSettings;
+        panelWhitelisted.Cursor = Cursors.Hand;
+        lblWhitelistedCount.Cursor = Cursors.Hand;
+        lblWhitelistedTitle.Cursor = Cursors.Hand;
+
+
 
         // system tray icon
         contextMenuTray.Items.Clear();
@@ -285,6 +312,36 @@ public partial class MainForm : Form
         notifyIconRDPSecure.Icon = SystemIcons.Shield;
         notifyIconRDPSecure.ContextMenuStrip = contextMenuTray;
         notifyIconRDPSecure.Visible = true;
+    }
+
+
+    private void OnOpenWhitelistSettings(object? sender, EventArgs e)
+    {
+        try
+        {
+            using (var settingsForm = new SettingsForm(monitorService))
+            {
+                // Select the IP Management tab
+                settingsForm.SelectIPManagementTab();
+
+                if (settingsForm.ShowDialog(this) == DialogResult.OK)
+                {
+                    settings = SettingsManager.LoadSettings();
+                    logger.LogInformation("Settings reloaded in MainForm");
+                    UpdateUIFromSettings();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError("Error opening settings dialog", ex);
+            MessageBox.Show(
+                "Error opening settings: " + ex.Message,
+                "Settings Error",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error
+            );
+        }
     }
 
 

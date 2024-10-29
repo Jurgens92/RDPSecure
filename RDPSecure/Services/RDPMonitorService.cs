@@ -118,18 +118,21 @@ namespace RDPSecure.Services
         {
             try
             {
+                // Initialize logger first
+                _logger = new SecurityLogger();
+
                 _settings = settings;
                 _loginAttempts = new Dictionary<string, List<DateTime>>(StringComparer.OrdinalIgnoreCase);
                 _bannedIPs = new Dictionary<string, BanInfo>(StringComparer.OrdinalIgnoreCase);
-                _logger = new SecurityLogger();
+
+                // Now initialize location service with the guaranteed non-null logger
                 _locationService = new IPLocationService(_logger);
 
-                // Initialize cleanup timer
-                _cleanupTimer = new System.Timers.Timer(60000); // Check every minute
+                // Rest of your initialization code...
+                _cleanupTimer = new System.Timers.Timer(60000);
                 _cleanupTimer.Elapsed += (s, e) => CleanupOldAttempts();
                 _cleanupTimer.Start();
 
-                // Load existing banned IPs
                 var savedBans = SettingsManager.LoadBannedIPs();
                 foreach (var ban in savedBans)
                 {
@@ -137,17 +140,15 @@ namespace RDPSecure.Services
                 }
 
                 UpdateLocationsForExistingBans();
-
-                // Initialize or update the firewall rule
                 UpdateFirewallRule();
 
-                // Set up Windows Event Log monitoring
                 _eventLog = new EventLog("Security");
                 _eventLog.EntryWritten += OnSecurityEventWritten;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error initializing RDPMonitorService: {ex.Message}");
+                // Since logger is initialized first, this should now be safe
+                _logger?.LogError($"Error initializing RDPMonitorService: {ex.Message}");
                 throw;
             }
         }
@@ -434,7 +435,7 @@ namespace RDPSecure.Services
 
         private void CleanOldAttempts(string ipAddress)
         {
-            if (_loginAttempts.ContainsKey(ipAddress))
+            if (_loginAttempts.ContainsKey(ipAddress) && _loginAttempts[ipAddress] != null)
             {
                 var cutoffTime = DateTime.Now.AddMinutes(-_settings.TimeWindow);
                 _loginAttempts[ipAddress] = _loginAttempts[ipAddress]
