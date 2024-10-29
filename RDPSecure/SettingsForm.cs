@@ -1,6 +1,8 @@
 ﻿using RDPSecure.Logging;
 using RDPSecure.Services;
+using System.Diagnostics;
 using System.Net;
+using System.ServiceProcess;
 
 namespace RDPSecure
 {
@@ -13,6 +15,7 @@ namespace RDPSecure
         public SettingsForm(RDPMonitorService monitorService)
         {
             InitializeComponent();
+            InitializeSystemTab();
             this.monitorService = monitorService;
             logger = new SecurityLogger();
             currentSettings = SettingsManager.LoadSettings();
@@ -451,28 +454,14 @@ namespace RDPSecure
                 currentSettings.PublicIPBanDays = (int)nudPublicIPBanDays.Value;
                 currentSettings.BurstProtectionEnabled = chkBurstProtection.Checked;
 
-                // Update whitelist
-                currentSettings.WhitelistedIPs.Clear();
-                foreach (DataGridViewRow row in gridIPList.Rows)
-                {
-                    if (row.Cells["colIP"].Value != null)
-                    {
-                        var ipEntry = new IPEntry
-                        {
-                            IPAddress = row.Cells["colIP"].Value.ToString() ?? "",
-                            Type = row.Cells["colType"].Value?.ToString() ?? "Whitelist",
-                            AddedDate = DateTime.Parse(row.Cells["colAddedDate"].Value?.ToString() ?? DateTime.Now.ToString()),
-                            IsEnabled = row.Cells["colStatus"].Value?.ToString() == "Enabled"
-                        };
-                        currentSettings.WhitelistedIPs.Add(ipEntry);
-                    }
-                }
-
                 // Save the settings
                 SettingsManager.SaveSettings(currentSettings);
 
+                // Notify the service of settings change
+                monitorService.OnSettingsChanged();
+
                 // Log success and close the form
-                logger.LogInformation("Settings saved successfully");
+                logger.LogInformation($"Settings saved successfully. MaxAttempts set to: {currentSettings.MaxAttempts}");
                 DialogResult = DialogResult.OK;
                 Close();
             }
@@ -509,6 +498,190 @@ namespace RDPSecure
                     e.Cancel = true;  // Prevent closing if save failed
                 }
             }
+        }
+        //------------------------------
+
+        private void InitializeSystemTab()
+        {
+            // Create Service Management group box
+            var groupBoxService = new GroupBox
+            {
+                Text = "Service Management",
+                Location = new Point(20, 20),
+                Size = new Size(520, 120),
+                Parent = tabSystem
+            };
+
+            // Service status label
+            var lblStatusText = new Label
+            {
+                Text = "Service Status:",
+                Location = new Point(20, 30),
+                AutoSize = true,
+                Parent = groupBoxService
+            };
+
+            var lblStatus = new Label
+            {
+                Text = "Checking...",
+                Location = new Point(110, 30),
+                AutoSize = true,
+                Parent = groupBoxService
+            };
+
+            // Install button
+            var btnInstall = new Button
+            {
+                Text = "Install Service",
+                Location = new Point(20, 60),
+                Size = new Size(120, 30),
+                Parent = groupBoxService
+            };
+
+            // Uninstall button
+            var btnUninstall = new Button
+            {
+                Text = "Uninstall Service",
+                Location = new Point(150, 60),
+                Size = new Size(120, 30),
+                Parent = groupBoxService
+            };
+
+            // Service control button
+            var btnStartStop = new Button
+            {
+                Text = "Start Service",
+                Location = new Point(280, 60),
+                Size = new Size(120, 30),
+                Parent = groupBoxService
+            };
+
+            // Add click handlers
+            btnInstall.Click += async (s, e) => await InstallServiceAsync();
+            btnUninstall.Click += async (s, e) => await UninstallServiceAsync();
+            btnStartStop.Click += async (s, e) => await ToggleServiceAsync();
+
+            // Timer to update service status
+            var statusTimer = new System.Windows.Forms.Timer
+            {
+                Interval = 2000  // Check every 2 seconds
+            };
+
+            statusTimer.Tick += (s, e) => UpdateServiceStatus(lblStatus, btnStartStop, btnInstall, btnUninstall);
+            statusTimer.Start();
+
+            // Initial status check
+            UpdateServiceStatus(lblStatus, btnStartStop, btnInstall, btnUninstall);
+        }
+
+        private void UpdateServiceStatus(Label statusLabel, Button startStopButton, Button installButton, Button uninstallButton)
+        {
+            try
+            {
+                using var controller = new ServiceController("RDPSecure");
+                var status = controller.Status;
+
+                // Update status label
+                statusLabel.Text = status.ToString();
+                statusLabel.ForeColor = status == ServiceControllerStatus.Running ? Color.Green : Color.Red;
+
+                // Update buttons
+                startStopButton.Enabled = true;
+                startStopButton.Text = status == ServiceControllerStatus.Running ? "Stop Service" : "Start Service";
+
+                installButton.Enabled = false;
+                uninstallButton.Enabled = true;
+            }
+            catch
+            {
+                // Service doesn't exist
+                statusLabel.Text = "Not Installed";
+                statusLabel.ForeColor = Color.Red;
+                startStopButton.Enabled = false;
+                installButton.Enabled = true;
+                uninstallButton.Enabled = false;
+            }
+        }
+        private async Task InstallServiceAsync()
+        {
+            if (!Program.IsAdministrator())
+            {
+                MessageBox.Show("Administrator privileges are required to install the service.",
+                    "Administrator Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            try
+            {
+                Program.InstallService();
+                MessageBox.Show("Service installed successfully!", "Success",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error installing service: {ex.Message}", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private async Task UninstallServiceAsync()
+        {
+            if (!Program.IsAdministrator())
+            {
+                MessageBox.Show("Administrator privileges are required to uninstall the service.",
+                    "Administrator Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            try
+            {
+                Program.UninstallService();
+                MessageBox.Show("Service uninstalled successfully!", "Success",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error uninstalling service: {ex.Message}", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private async Task ToggleServiceAsync()
+        {
+            if (!Program.IsAdministrator())
+            {
+                MessageBox.Show("Administrator privileges are required to control the service.",
+                    "Administrator Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            try
+            {
+                using var controller = new ServiceController("RDPSecure");
+
+                if (controller.Status == ServiceControllerStatus.Running)
+                {
+                    controller.Stop();
+                    await Task.Run(() => controller.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30)));
+                }
+                else if (controller.Status == ServiceControllerStatus.Stopped)
+                {
+                    controller.Start();
+                    await Task.Run(() => controller.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30)));
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error controlling service: {ex.Message}", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private bool IsAdministrator()
+        {
+            var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+            var principal = new System.Security.Principal.WindowsPrincipal(identity);
+            return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
         }
     }
 }

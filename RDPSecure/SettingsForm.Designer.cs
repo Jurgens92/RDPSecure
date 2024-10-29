@@ -52,13 +52,13 @@
             colAddedDate = new DataGridViewTextBoxColumn();
             colStatus = new DataGridViewTextBoxColumn();
             panelIPControls = new Panel();
+            btnAddBlacklist = new Button();
             btnAddWhitelist = new Button();
             txtIPAddress = new TextBox();
             tabSystem = new TabPage();
             contextMenuIPList = new ContextMenuStrip(components);
             menuItemRemoveIP = new ToolStripMenuItem();
             menuItemToggleStatus = new ToolStripMenuItem();
-            btnAddBlacklist = new Button();
             tabControlSettings.SuspendLayout();
             tabProtection.SuspendLayout();
             gbBanDuration.SuspendLayout();
@@ -315,6 +315,18 @@
             panelIPControls.Size = new Size(570, 60);
             panelIPControls.TabIndex = 0;
             // 
+            // btnAddBlacklist
+            // 
+            btnAddBlacklist.BackColor = Color.Red;
+            btnAddBlacklist.FlatStyle = FlatStyle.Flat;
+            btnAddBlacklist.ForeColor = Color.White;
+            btnAddBlacklist.Location = new Point(346, 20);
+            btnAddBlacklist.Name = "btnAddBlacklist";
+            btnAddBlacklist.Size = new Size(120, 23);
+            btnAddBlacklist.TabIndex = 2;
+            btnAddBlacklist.Text = "Add to Banlist";
+            btnAddBlacklist.UseVisualStyleBackColor = false;
+            // 
             // btnAddWhitelist
             // 
             btnAddWhitelist.BackColor = Color.FromArgb(39, 174, 96);
@@ -362,18 +374,6 @@
             menuItemToggleStatus.Name = "menuItemToggleStatus";
             menuItemToggleStatus.Size = new Size(167, 22);
             menuItemToggleStatus.Text = "Enable/Disable";
-            // 
-            // btnAddBlacklist
-            // 
-            btnAddBlacklist.BackColor = Color.Red;
-            btnAddBlacklist.FlatStyle = FlatStyle.Flat;
-            btnAddBlacklist.ForeColor = Color.White;
-            btnAddBlacklist.Location = new Point(346, 20);
-            btnAddBlacklist.Name = "btnAddBlacklist";
-            btnAddBlacklist.Size = new Size(120, 23);
-            btnAddBlacklist.TabIndex = 2;
-            btnAddBlacklist.Text = "Add to Banlist";
-            btnAddBlacklist.UseVisualStyleBackColor = false;
             // 
             // SettingsForm
             // 
