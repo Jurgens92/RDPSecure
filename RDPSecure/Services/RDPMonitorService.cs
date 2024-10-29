@@ -366,10 +366,6 @@ namespace RDPSecure.Services
                 // Log the event immediately
                 _logger.LogInformation($"Received login attempt from IP: {ipAddress}");
 
-                // Refresh settings
-                RefreshSettings();
-                _logger.LogInformation($"Current settings - MaxAttempts: {_settings.MaxAttempts}, TimeWindow: {_settings.TimeWindow}");
-
                 // First check whitelist
                 if (IsWhitelisted(ipAddress))
                 {
@@ -382,13 +378,12 @@ namespace RDPSecure.Services
                 {
                     if (DateTime.Now < _bannedIPs[ipAddress].ExpiryTime)
                     {
-                        _logger.LogInformation($"Login attempt from banned IP: {ipAddress}");
+                        _logger.LogInformation($"Blocked attempt from banned IP: {ipAddress}");
                         return;
                     }
                     else
                     {
                         // Remove expired ban
-                        _logger.LogInformation($"Removing expired ban for IP: {ipAddress}");
                         _bannedIPs.Remove(ipAddress);
                         UpdateFirewallRule();
                     }
@@ -420,7 +415,7 @@ namespace RDPSecure.Services
                         Timestamp = DateTime.Now
                     });
 
-                    // Check for ban immediately
+                    // Check for ban
                     if (recentAttempts >= _settings.MaxAttempts)
                     {
                         _logger.LogInformation(
@@ -433,7 +428,7 @@ namespace RDPSecure.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error processing login attempt for IP {ipAddress}: {ex.Message}\n{ex.StackTrace}");
+                _logger.LogError($"Error processing login attempt for IP {ipAddress}: {ex.Message}");
             }
         }
 
@@ -600,34 +595,49 @@ namespace RDPSecure.Services
 
         public void CleanupExpiredBans()
         {
-            var expiredBans = _bannedIPs
-                .Where(kvp => DateTime.Now >= kvp.Value.ExpiryTime)
-                .Select(kvp => kvp.Key)
-                .ToList();
-
-            if (expiredBans.Any())
+            try
             {
-                foreach (var ip in expiredBans)
-                {
-                    _bannedIPs.Remove(ip);
-                }
+                var expiredBans = _bannedIPs
+                    .Where(kvp => DateTime.Now >= kvp.Value.ExpiryTime)
+                    .Select(kvp => kvp.Key)
+                    .ToList();
 
-                UpdateFirewallRule();
-                SettingsManager.SaveBannedIPs(_bannedIPs);
-                _logger.LogInformation($"Cleaned up {expiredBans.Count} expired bans");
+                if (expiredBans.Any())
+                {
+                    foreach (var ip in expiredBans)
+                    {
+                        _bannedIPs.Remove(ip);
+                    }
+
+                    UpdateFirewallRule();
+                    SettingsManager.SaveBannedIPs(_bannedIPs);
+                    _logger.LogInformation($"Cleaned up {expiredBans.Count} expired bans");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error cleaning up expired bans: {ex.Message}");
             }
         }
 
         private bool IsPrivateIP(string ipAddress)
         {
-            if (IPAddress.TryParse(ipAddress, out IPAddress? ip))
+            try
             {
-                byte[] bytes = ip.GetAddressBytes();
-                return bytes[0] == 10 || // 10.x.x.x
-                       (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31) || // 172.16.x.x - 172.31.x.x
-                       (bytes[0] == 192 && bytes[1] == 168); // 192.168.x.x
+                if (IPAddress.TryParse(ipAddress, out IPAddress? ip))
+                {
+                    byte[] bytes = ip.GetAddressBytes();
+                    return bytes[0] == 10 || // 10.x.x.x
+                           (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31) || // 172.16.x.x - 172.31.x.x
+                           (bytes[0] == 192 && bytes[1] == 168); // 192.168.x.x
+                }
+                return false;
             }
-            return false;
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error checking if IP {ipAddress} is private: {ex.Message}");
+                return false;
+            }
         }
 
         private string ExtractIPAddress(string logMessage)
