@@ -417,8 +417,7 @@ namespace RDPSecure
                 nudTimeWindow.Value = currentSettings.TimeWindow;
                 nudPrivateIPBanHours.Value = currentSettings.PrivateIPBanHours;
                 nudPublicIPBanDays.Value = currentSettings.PublicIPBanDays;
-                chkBurstProtection.Checked = currentSettings.BurstProtectionEnabled;
-
+                
                 // Load IP List
                 gridIPList.Rows.Clear();
                 foreach (var ip in currentSettings.WhitelistedIPs)
@@ -452,8 +451,7 @@ namespace RDPSecure
                 currentSettings.TimeWindow = (int)nudTimeWindow.Value;
                 currentSettings.PrivateIPBanHours = (int)nudPrivateIPBanHours.Value;
                 currentSettings.PublicIPBanDays = (int)nudPublicIPBanDays.Value;
-                currentSettings.BurstProtectionEnabled = chkBurstProtection.Checked;
-
+                
                 // Save the settings
                 SettingsManager.SaveSettings(currentSettings);
 

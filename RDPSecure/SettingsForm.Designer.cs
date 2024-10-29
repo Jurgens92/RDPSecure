@@ -34,7 +34,6 @@
             btnCancel = new Button();
             btnOK = new Button();
             gbBanDuration = new GroupBox();
-            chkBurstProtection = new CheckBox();
             lblPublicIPBan = new Label();
             nudPublicIPBanDays = new NumericUpDown();
             lblPrivateIPBan = new Label();
@@ -103,7 +102,7 @@
             // btnCancel
             // 
             btnCancel.DialogResult = DialogResult.Cancel;
-            btnCancel.Location = new Point(20, 346);
+            btnCancel.Location = new Point(20, 332);
             btnCancel.Name = "btnCancel";
             btnCancel.Size = new Size(80, 30);
             btnCancel.TabIndex = 3;
@@ -115,7 +114,7 @@
             btnOK.BackColor = Color.FromArgb(52, 152, 219);
             btnOK.DialogResult = DialogResult.OK;
             btnOK.ForeColor = Color.White;
-            btnOK.Location = new Point(20, 310);
+            btnOK.Location = new Point(20, 292);
             btnOK.Name = "btnOK";
             btnOK.Size = new Size(80, 30);
             btnOK.TabIndex = 2;
@@ -124,27 +123,16 @@
             // 
             // gbBanDuration
             // 
-            gbBanDuration.Controls.Add(chkBurstProtection);
             gbBanDuration.Controls.Add(lblPublicIPBan);
             gbBanDuration.Controls.Add(nudPublicIPBanDays);
             gbBanDuration.Controls.Add(lblPrivateIPBan);
             gbBanDuration.Controls.Add(nudPrivateIPBanHours);
-            gbBanDuration.Location = new Point(20, 140);
+            gbBanDuration.Location = new Point(20, 126);
             gbBanDuration.Name = "gbBanDuration";
-            gbBanDuration.Size = new Size(520, 150);
+            gbBanDuration.Size = new Size(520, 111);
             gbBanDuration.TabIndex = 1;
             gbBanDuration.TabStop = false;
             gbBanDuration.Text = "Ban Duration Settings";
-            // 
-            // chkBurstProtection
-            // 
-            chkBurstProtection.AutoSize = true;
-            chkBurstProtection.Location = new Point(20, 110);
-            chkBurstProtection.Name = "chkBurstProtection";
-            chkBurstProtection.Size = new Size(184, 19);
-            chkBurstProtection.TabIndex = 4;
-            chkBurstProtection.Text = "Enable burst attack protection";
-            chkBurstProtection.UseVisualStyleBackColor = true;
             // 
             // lblPublicIPBan
             // 
@@ -157,7 +145,7 @@
             // 
             // nudPublicIPBanDays
             // 
-            nudPublicIPBanDays.Location = new Point(150, 70);
+            nudPublicIPBanDays.Location = new Point(189, 70);
             nudPublicIPBanDays.Maximum = new decimal(new int[] { 365, 0, 0, 0 });
             nudPublicIPBanDays.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             nudPublicIPBanDays.Name = "nudPublicIPBanDays";
@@ -176,7 +164,7 @@
             // 
             // nudPrivateIPBanHours
             // 
-            nudPrivateIPBanHours.Location = new Point(150, 30);
+            nudPrivateIPBanHours.Location = new Point(189, 30);
             nudPrivateIPBanHours.Maximum = new decimal(new int[] { 24, 0, 0, 0 });
             nudPrivateIPBanHours.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             nudPrivateIPBanHours.Name = "nudPrivateIPBanHours";
@@ -208,7 +196,7 @@
             // 
             // nudTimeWindow
             // 
-            nudTimeWindow.Location = new Point(159, 59);
+            nudTimeWindow.Location = new Point(189, 59);
             nudTimeWindow.Maximum = new decimal(new int[] { 60, 0, 0, 0 });
             nudTimeWindow.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             nudTimeWindow.Name = "nudTimeWindow";
@@ -227,7 +215,7 @@
             // 
             // nudMaxAttempts
             // 
-            nudMaxAttempts.Location = new Point(159, 30);
+            nudMaxAttempts.Location = new Point(189, 30);
             nudMaxAttempts.Maximum = new decimal(new int[] { 10, 0, 0, 0 });
             nudMaxAttempts.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             nudMaxAttempts.Name = "nudMaxAttempts";
@@ -430,7 +418,6 @@
         private ToolStripMenuItem menuItemRemoveIP;
         private ToolStripMenuItem menuItemToggleStatus;
         private GroupBox gbBanDuration;
-        private CheckBox chkBurstProtection;
         private Label lblPublicIPBan;
         private NumericUpDown nudPublicIPBanDays;
         private Label lblPrivateIPBan;

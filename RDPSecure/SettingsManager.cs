@@ -7,12 +7,14 @@ namespace RDPSecure
     public static class SettingsManager
     {
         private static readonly string AppDataPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "RDPSecure"
-        );
+       Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+       "RDPSecure"
+       );
 
         private static readonly string SettingsPath = Path.Combine(AppDataPath, "settings.json");
         private static readonly string BannedIPsPath = Path.Combine(AppDataPath, "banned_ips.json");
+        private static readonly object _fileLock = new object();
+
 
         public static AppSettings LoadSettings()
         {
@@ -51,9 +53,12 @@ namespace RDPSecure
         {
             try
             {
-                EnsureDirectoryExists();
-                string json = JsonConvert.SerializeObject(settings, Formatting.Indented);
-                File.WriteAllText(SettingsPath, json);
+                lock (_fileLock)
+                {
+                    EnsureDirectoryExists();
+                    string json = JsonConvert.SerializeObject(settings, Formatting.Indented);
+                    File.WriteAllText(SettingsPath, json);
+                }
             }
             catch (Exception ex)
             {
@@ -71,9 +76,12 @@ namespace RDPSecure
         {
             try
             {
-                EnsureDirectoryExists();
-                string json = JsonConvert.SerializeObject(bannedIPs, Formatting.Indented);
-                File.WriteAllText(BannedIPsPath, json);
+                lock (_fileLock)
+                {
+                    EnsureDirectoryExists();
+                    string json = JsonConvert.SerializeObject(bannedIPs, Formatting.Indented);
+                    File.WriteAllText(BannedIPsPath, json);
+                }
             }
             catch (Exception ex)
             {
@@ -90,11 +98,14 @@ namespace RDPSecure
         {
             try
             {
-                if (File.Exists(BannedIPsPath))
+                lock (_fileLock)
                 {
-                    string json = File.ReadAllText(BannedIPsPath);
-                    var bannedIPs = JsonConvert.DeserializeObject<Dictionary<string, BanInfo>>(json);
-                    return bannedIPs ?? new Dictionary<string, BanInfo>();
+                    if (File.Exists(BannedIPsPath))
+                    {
+                        string json = File.ReadAllText(BannedIPsPath);
+                        var bannedIPs = JsonConvert.DeserializeObject<Dictionary<string, BanInfo>>(json);
+                        return bannedIPs ?? new Dictionary<string, BanInfo>(StringComparer.OrdinalIgnoreCase);
+                    }
                 }
             }
             catch (Exception ex)
@@ -106,7 +117,7 @@ namespace RDPSecure
                     MessageBoxIcon.Warning
                 );
             }
-            return new Dictionary<string, BanInfo>();
+            return new Dictionary<string, BanInfo>(StringComparer.OrdinalIgnoreCase);
         }
 
         private static void EnsureDirectoryExists()

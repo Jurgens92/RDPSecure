@@ -34,8 +34,6 @@ partial class MainForm
         DataGridViewCellStyle dataGridViewCellStyle3 = new DataGridViewCellStyle();
         System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
         panelStats = new Panel();
-        firewallStatusIcon = new PictureBox();
-        lblfirewallStatus = new Label();
         btnExit = new Button();
         btnSettings = new Button();
         panelWhitelisted = new Panel();
@@ -63,7 +61,6 @@ partial class MainForm
         toolStripMenuItem3 = new ToolStripMenuItem();
         exitToolStripMenuItem = new ToolStripMenuItem();
         panelStats.SuspendLayout();
-        ((System.ComponentModel.ISupportInitialize)firewallStatusIcon).BeginInit();
         panelWhitelisted.SuspendLayout();
         panelRecentAttempts.SuspendLayout();
         panelActiveBans.SuspendLayout();
@@ -74,8 +71,6 @@ partial class MainForm
         // 
         // panelStats
         // 
-        panelStats.Controls.Add(firewallStatusIcon);
-        panelStats.Controls.Add(lblfirewallStatus);
         panelStats.Controls.Add(btnExit);
         panelStats.Controls.Add(btnSettings);
         panelStats.Controls.Add(panelWhitelisted);
@@ -85,25 +80,8 @@ partial class MainForm
         panelStats.Location = new Point(0, 0);
         panelStats.Name = "panelStats";
         panelStats.Padding = new Padding(20);
-        panelStats.Size = new Size(784, 142);
+        panelStats.Size = new Size(784, 124);
         panelStats.TabIndex = 0;
-        // 
-        // firewallStatusIcon
-        // 
-        firewallStatusIcon.Location = new Point(147, 116);
-        firewallStatusIcon.Name = "firewallStatusIcon";
-        firewallStatusIcon.Size = new Size(21, 20);
-        firewallStatusIcon.TabIndex = 6;
-        firewallStatusIcon.TabStop = false;
-        // 
-        // lblfirewallStatus
-        // 
-        lblfirewallStatus.AutoSize = true;
-        lblfirewallStatus.Location = new Point(23, 119);
-        lblfirewallStatus.Name = "lblfirewallStatus";
-        lblfirewallStatus.Size = new Size(88, 15);
-        lblfirewallStatus.TabIndex = 5;
-        lblfirewallStatus.Text = "Firewall Status: ";
         // 
         // btnExit
         // 
@@ -233,10 +211,10 @@ partial class MainForm
         // 
         panelGrid.Controls.Add(gridBannedIPs);
         panelGrid.Dock = DockStyle.Fill;
-        panelGrid.Location = new Point(0, 142);
+        panelGrid.Location = new Point(0, 124);
         panelGrid.Name = "panelGrid";
         panelGrid.Padding = new Padding(20);
-        panelGrid.Size = new Size(784, 419);
+        panelGrid.Size = new Size(784, 437);
         panelGrid.TabIndex = 1;
         // 
         // gridBannedIPs
@@ -278,7 +256,7 @@ partial class MainForm
         gridBannedIPs.RowHeadersBorderStyle = DataGridViewHeaderBorderStyle.Sunken;
         gridBannedIPs.RowHeadersVisible = false;
         gridBannedIPs.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-        gridBannedIPs.Size = new Size(744, 379);
+        gridBannedIPs.Size = new Size(744, 397);
         gridBannedIPs.TabIndex = 0;
         // 
         // Column1
@@ -367,8 +345,6 @@ partial class MainForm
         StartPosition = FormStartPosition.CenterScreen;
         Text = "RDP Secure";
         panelStats.ResumeLayout(false);
-        panelStats.PerformLayout();
-        ((System.ComponentModel.ISupportInitialize)firewallStatusIcon).EndInit();
         panelWhitelisted.ResumeLayout(false);
         panelWhitelisted.PerformLayout();
         panelRecentAttempts.ResumeLayout(false);
@@ -410,6 +386,4 @@ partial class MainForm
     private ToolStripMenuItem toolStripMenuItem3;
     private ToolStripMenuItem exitToolStripMenuItem;
     private Button btnExit;
-    private Label lblfirewallStatus;
-    private PictureBox firewallStatusIcon;
 }

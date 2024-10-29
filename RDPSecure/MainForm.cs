@@ -28,7 +28,7 @@ public partial class MainForm : Form
 
 
 
-    private  AppSettings settings;
+    private AppSettings settings;
     private readonly RDPMonitorService monitorService;
     private readonly SecurityLogger logger;
 
@@ -38,7 +38,7 @@ public partial class MainForm : Form
         try
         {
             InitializeComponent();
-            
+
             logger = new SecurityLogger();
             settings = SettingsManager.LoadSettings();
             monitorService = new RDPMonitorService(settings);
@@ -55,7 +55,7 @@ public partial class MainForm : Form
 
             // Start monitoring
             monitorService.StartMonitoring();
-            
+
         }
         catch (Exception ex)
         {
@@ -210,7 +210,8 @@ public partial class MainForm : Form
 
     private void OnLoginAttemptDetected(object? sender, LoginAttemptEventArgs e)
     {
-        BeginInvoke(() => {
+        BeginInvoke(() =>
+        {
             try
             {
                 lblRecentAttemptsCount.Text =
@@ -225,7 +226,8 @@ public partial class MainForm : Form
 
     private void OnIPBanned(object? sender, IPBanEventArgs e)
     {
-        BeginInvoke(() => {
+        BeginInvoke(() =>
+        {
             try
             {
                 lblActiveBansCount.Text =
@@ -346,23 +348,6 @@ public partial class MainForm : Form
         }
 
         base.OnFormClosing(e);
-    }
-
-
-
-
-
-
-
-
-
-
-    //Sample Data-------------------------------------------------------------------------------------
-    private void AddSampleData()
-    {
-        gridBannedIPs.Rows.Add("192.168.1.100", "Internal Network", "1 hour", "3", "Banned");
-        gridBannedIPs.Rows.Add("203.0.113.46", "United States", "30 days", "5", "Banned");
-        gridBannedIPs.Rows.Add("198.51.100.76", "Germany", "30 days", "8", "Banned");
     }
 
   
