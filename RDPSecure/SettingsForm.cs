@@ -499,7 +499,6 @@ namespace RDPSecure
                 }
             }
         }
-        //------------------------------
 
         private void InitializeSystemTab()
         {
@@ -623,7 +622,6 @@ namespace RDPSecure
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-
         private async Task UninstallServiceAsync()
         {
             if (!Program.IsAdministrator())

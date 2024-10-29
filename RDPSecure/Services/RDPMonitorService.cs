@@ -21,11 +21,6 @@ namespace RDPSecure.Services
         public event EventHandler<IPLocationEventArgs>? IPLocationUpdated;
         public event EventHandler<LoginAttemptEventArgs>? LoginAttemptDetected;
         public event EventHandler<IPBanEventArgs>? IPBanned;
-
-
-
-
-
         private void RefreshSettings()
         {
             try
@@ -584,8 +579,6 @@ namespace RDPSecure.Services
             return string.Empty;
         }
 
-        
-
         public Dictionary<string, BanInfo> GetActiveBans()
         {
             return _bannedIPs
@@ -610,6 +603,5 @@ namespace RDPSecure.Services
         }
 
     }
-
 
 }
