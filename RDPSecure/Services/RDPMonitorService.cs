@@ -471,67 +471,92 @@ namespace RDPSecure.Services
         {
             try
             {
-                // Remove existing rule if it exists
-                RemoveFirewallRule();
+                // Remove existing rules
+                RemoveFirewallRule("IPv4");
+                RemoveFirewallRule("IPv6");
 
                 // Get all active banned IPs
-                var activeBannedIPs = _bannedIPs
+                var activeBans = _bannedIPs
                     .Where(kvp => DateTime.Now < kvp.Value.ExpiryTime)
-                    .Select(kvp => kvp.Key)
                     .ToList();
 
-                if (activeBannedIPs.Any())
+                // Separate IPv4 and IPv6 addresses
+                var ipv4Bans = activeBans
+                    .Where(b => !b.Value.IsIPv6)
+                    .Select(b => b.Key)
+                    .ToList();
+
+                var ipv6Bans = activeBans
+                    .Where(b => b.Value.IsIPv6)
+                    .Select(b => b.Key)
+                    .ToList();
+
+                // Create IPv4 rule if needed
+                if (ipv4Bans.Any())
                 {
-                    // Create rule with all banned IPs
-                    var process = new Process
-                    {
-                        StartInfo = new ProcessStartInfo
-                        {
-                            FileName = "netsh",
-                            Arguments = $"advfirewall firewall add rule" +
-                                      $" name=\"{FIREWALL_RULE_NAME}\"" +
-                                      $" dir=in" +
-                                      $" interface=any" +
-                                      $" action=block" +
-                                      $" remoteip={string.Join(",", activeBannedIPs)}",
-                            CreateNoWindow = true,
-                            UseShellExecute = false,
-                            RedirectStandardOutput = true,
-                            RedirectStandardError = true
-                        }
-                    };
+                    CreateFirewallRule(ipv4Bans, "IPv4");
+                }
 
-                    process.Start();
-                    string output = process.StandardOutput.ReadToEnd();
-                    string error = process.StandardError.ReadToEnd();
-                    process.WaitForExit();
-
-                    if (process.ExitCode != 0)
-                    {
-                        _logger.LogError($"Error updating firewall rule. Output: {output} Error: {error}");
-                    }
-                    else
-                    {
-                        _logger.LogInformation($"Firewall rule updated with {activeBannedIPs.Count} IPs");
-                    }
+                // Create IPv6 rule if needed
+                if (ipv6Bans.Any())
+                {
+                    CreateFirewallRule(ipv6Bans, "IPv6");
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error managing firewall rule: {ex.Message}");
+                _logger.LogError($"Error managing firewall rules: {ex.Message}");
             }
         }
 
-        private void RemoveFirewallRule()
+        private void CreateFirewallRule(List<string> ips, string version)
+        {
+            var ruleName = $"{FIREWALL_RULE_NAME}-{version}";
+            var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "netsh",
+                    Arguments = $"advfirewall firewall add rule" +
+                               $" name=\"{ruleName}\"" +
+                               $" dir=in" +
+                               $" interface=any" +
+                               $" action=block" +
+                               $" remoteip={string.Join(",", ips)}" +
+                               (version == "IPv6" ? " protocol=IPv6" : ""),
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                }
+            };
+
+            process.Start();
+            string output = process.StandardOutput.ReadToEnd();
+            string error = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+
+            if (process.ExitCode != 0)
+            {
+                _logger.LogError($"Error creating {version} firewall rule. Output: {output} Error: {error}");
+            }
+            else
+            {
+                _logger.LogInformation($"{version} firewall rule created with {ips.Count} IPs");
+            }
+        }
+
+        private void RemoveFirewallRule(string version)
         {
             try
             {
+                var ruleName = $"{FIREWALL_RULE_NAME}-{version}";
                 var process = new Process
                 {
                     StartInfo = new ProcessStartInfo
                     {
                         FileName = "netsh",
-                        Arguments = $"advfirewall firewall delete rule name=\"{FIREWALL_RULE_NAME}\"",
+                        Arguments = $"advfirewall firewall delete rule name=\"{ruleName}\"",
                         CreateNoWindow = true,
                         UseShellExecute = false,
                         RedirectStandardOutput = true,
@@ -544,7 +569,7 @@ namespace RDPSecure.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error removing firewall rule: {ex.Message}");
+                _logger.LogError($"Error removing {version} firewall rule: {ex.Message}");
             }
         }
 

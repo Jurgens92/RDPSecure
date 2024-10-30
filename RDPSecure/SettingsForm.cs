@@ -115,19 +115,29 @@ namespace RDPSecure
         private void OnAddBlacklist(object? sender, EventArgs e)
         {
             string ip = txtIPAddress.Text.Trim();
-            var (isValid, errorMessage) = IPValidator.ValidateIPv4(ip);
+            var validation = IPValidator.ValidateIP(ip);
 
-            if (!isValid)
+            if (!validation.IsValid)
             {
                 MessageBox.Show(
-                    errorMessage,
+                    validation.ErrorMessage,
                     "Invalid IP Address",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
                 return;
             }
 
-            if (IPValidator.IsReservedIP(ip))
+            if (!IPAddress.TryParse(ip, out IPAddress? parsedIP))
+            {
+                MessageBox.Show(
+                    "Failed to parse IP address.",
+                    "Invalid IP Address",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (IPValidator.IsReservedIP(parsedIP))
             {
                 MessageBox.Show(
                     "Reserved IP addresses cannot be blacklisted.",
@@ -229,11 +239,11 @@ namespace RDPSecure
         private void ValidateIPAddress()
         {
             string ip = txtIPAddress.Text.Trim();
-            var (isValid, errorMessage) = IPValidator.ValidateIPv4(ip);
+            var validation = IPValidator.ValidateIP(ip);
 
             if (string.IsNullOrWhiteSpace(ip))
             {
-                // Empty input - disable buttons
+                // Empty input - disable buttons but don't show error
                 btnAddWhitelist.Enabled = false;
                 btnAddBlacklist.Enabled = false;
                 txtIPAddress.BackColor = SystemColors.Window;
@@ -241,17 +251,28 @@ namespace RDPSecure
                 return;
             }
 
-            if (!isValid)
+            if (!validation.IsValid)
             {
                 btnAddWhitelist.Enabled = false;
                 btnAddBlacklist.Enabled = false;
                 txtIPAddress.BackColor = Color.MistyRose;
-                toolTip1.SetToolTip(txtIPAddress, errorMessage);
+                toolTip1.SetToolTip(txtIPAddress, validation.ErrorMessage);
+                return;
+            }
+
+            // Create an IPAddress instance for reserved check
+            if (!IPAddress.TryParse(ip, out IPAddress? parsedIP))
+            {
+                // This shouldn't happen since we already validated, but handle it just in case
+                btnAddWhitelist.Enabled = false;
+                btnAddBlacklist.Enabled = false;
+                txtIPAddress.BackColor = Color.MistyRose;
+                toolTip1.SetToolTip(txtIPAddress, "Invalid IP address format");
                 return;
             }
 
             // Check for reserved IPs
-            if (IPValidator.IsReservedIP(ip))
+            if (IPValidator.IsReservedIP(parsedIP))
             {
                 btnAddWhitelist.Enabled = false;
                 btnAddBlacklist.Enabled = false;
@@ -264,25 +285,35 @@ namespace RDPSecure
             btnAddWhitelist.Enabled = true;
             btnAddBlacklist.Enabled = true;
             txtIPAddress.BackColor = Color.LightGreen;
-            toolTip1.SetToolTip(txtIPAddress, "Valid IP address");
+            toolTip1.SetToolTip(txtIPAddress, $"Valid {validation.Version} address");
         }
 
         private void OnAddWhitelist(object? sender, EventArgs e)
         {
             string ip = txtIPAddress.Text.Trim();
-            var (isValid, errorMessage) = IPValidator.ValidateIPv4(ip);
+            var validation = IPValidator.ValidateIP(ip);
 
-            if (!isValid)
+            if (!validation.IsValid)
             {
                 MessageBox.Show(
-                    errorMessage,
+                    validation.ErrorMessage,
                     "Invalid IP Address",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
                 return;
             }
 
-            if (IPValidator.IsReservedIP(ip))
+            if (!IPAddress.TryParse(ip, out IPAddress? parsedIP))
+            {
+                MessageBox.Show(
+                    "Failed to parse IP address.",
+                    "Invalid IP Address",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (IPValidator.IsReservedIP(parsedIP))
             {
                 MessageBox.Show(
                     "Reserved IP addresses cannot be added to the whitelist.",
@@ -309,11 +340,11 @@ namespace RDPSecure
                 // Add to whitelist
                 var entry = new IPEntry
                 {
-                    IPAddress = ip,
+                    IPAddress = IPValidator.NormalizeIP(ip),
                     Type = "Whitelist",
                     AddedDate = DateTime.Now,
                     IsEnabled = true,
-                    Notes = "Added manually"
+                    Notes = $"Added manually ({validation.Version})"
                 };
 
                 currentSettings.WhitelistedIPs.Add(entry);
@@ -338,16 +369,16 @@ namespace RDPSecure
                 btnAddWhitelist.Enabled = false;
                 btnAddBlacklist.Enabled = false;
 
-                logger.LogInformation($"IP {ip} added to whitelist");
+                logger.LogInformation($"{validation.Version} address {ip} added to whitelist");
 
                 // Show success message
                 MessageBox.Show(
-                    $"IP address {ip} has been successfully added to the whitelist.",
+                    $"{validation.Version} address {ip} has been successfully added to the whitelist.",
                     "Success",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
 
-                // Refresh main form's whitelist count
+                // Refresh the main form's whitelist count
                 if (Owner is MainForm mainForm)
                 {
                     mainForm.BeginInvoke(() => mainForm.UpdateUIFromSettings());

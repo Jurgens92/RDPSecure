@@ -160,5 +160,17 @@ namespace RDPSecure
         public DateTime ExpiryTime { get; set; }
         public int AttemptCount { get; set; }
         public string Location { get; set; } = "Detecting...";
+        public IPValidator.IPVersion Version { get; set; }
+
+        // Helper property to determine if this is an IPv6 address
+        public bool IsIPv6 => Version == IPValidator.IPVersion.IPv6;
+
+        // Normalize the IP address when setting it
+        public void SetIPAddress(string ip)
+        {
+            IPAddress = IPValidator.NormalizeIP(ip);
+            var (_, _, version) = IPValidator.ValidateIP(ip);
+            Version = version;
+        }
     }
 }
