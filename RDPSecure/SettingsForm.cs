@@ -277,7 +277,7 @@ namespace RDPSecure
             if (gridIPList.SelectedRows.Count > 0)
             {
                 var row = gridIPList.SelectedRows[0];
-                string ip = row.Cells["colIP"].Value.ToString() ?? "";
+                string ip = row.Cells["colIP"].Value?.ToString() ?? "";
 
                 var result = MessageBox.Show(
                     $"Are you sure you want to remove {ip} from the whitelist?",
@@ -287,14 +287,35 @@ namespace RDPSecure
 
                 if (result == DialogResult.Yes)
                 {
-                    currentSettings.WhitelistedIPs.RemoveAll(w =>
-                        string.Equals(w.IPAddress, ip, StringComparison.OrdinalIgnoreCase));
-                    gridIPList.Rows.Remove(row);
+                    try
+                    {
+                        // Remove from settings
+                        currentSettings.WhitelistedIPs.RemoveAll(w =>
+                            string.Equals(w.IPAddress, ip, StringComparison.OrdinalIgnoreCase));
 
-                    // Save settings immediately after removing
-                    SaveSettings();
+                        // Remove from grid
+                        gridIPList.Rows.Remove(row);
 
-                    logger.LogInformation($"IP {ip} removed from whitelist");
+                        // Save settings
+                        SaveSettings();
+
+                        // Force main form to refresh - make sure to cast to MainForm
+                        if (Owner is MainForm mainForm)
+                        {
+                            mainForm.Invoke(new Action(() => mainForm.RefreshWhitelistCount()));
+                        }
+
+                        logger.LogInformation($"IP {ip} removed from whitelist");
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError("Error removing IP from whitelist", ex);
+                        MessageBox.Show(
+                            $"Error removing IP: {ex.Message}",
+                            "Error",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                    }
                 }
             }
         }
@@ -374,6 +395,15 @@ namespace RDPSecure
             {
                 SettingsManager.SaveSettings(currentSettings);
                 logger.LogInformation("Settings saved successfully");
+
+                // Force main form to refresh immediately after save
+                if (Owner is MainForm mainForm)
+                {
+                    mainForm.Invoke(new Action(() => {
+                        mainForm.RefreshWhitelistCount();
+                        logger.LogInformation("Main form whitelist count refreshed");
+                    }));
+                }
             }
             catch (Exception ex)
             {

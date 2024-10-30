@@ -5,6 +5,8 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RDPSecure", "RDPSecure\RDPSecure.csproj", "{6289A1A2-E393-4C39-8684-85A7FA7154BD}"
 EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "RDPSecureSetup", "RDPSecureSetup\RDPSecureSetup.vdproj", "{DAC689A9-2F81-4996-B455-C57A8439CA8F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,10 +17,8 @@ Global
 		{6289A1A2-E393-4C39-8684-85A7FA7154BD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6289A1A2-E393-4C39-8684-85A7FA7154BD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6289A1A2-E393-4C39-8684-85A7FA7154BD}.Release|Any CPU.Build.0 = Release|Any CPU
-		{5BD34654-0911-4C49-959E-EB544173EA19}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5BD34654-0911-4C49-959E-EB544173EA19}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5BD34654-0911-4C49-959E-EB544173EA19}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5BD34654-0911-4C49-959E-EB544173EA19}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DAC689A9-2F81-4996-B455-C57A8439CA8F}.Debug|Any CPU.ActiveCfg = Debug
+		{DAC689A9-2F81-4996-B455-C57A8439CA8F}.Release|Any CPU.ActiveCfg = Release
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

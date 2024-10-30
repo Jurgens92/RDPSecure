@@ -259,9 +259,15 @@ namespace RDPSecure.Services
                     // Add the ban
                     _bannedIPs[ipAddress] = banInfo;
 
-                    // Save to JSON immediately
-                    SettingsManager.SaveBannedIPs(_bannedIPs);
-
+                    // Save to JSON
+                    try
+                    {
+                        SettingsManager.SaveBannedIPs(_bannedIPs);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"Failed to save banned IPs, but IP {ipAddress} is still banned in memory: {ex.Message}");
+                    }
                     // Update firewall
                     UpdateFirewallRule();
 
@@ -285,7 +291,7 @@ namespace RDPSecure.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error banning IP {ipAddress}: {ex.Message}\n{ex.StackTrace}");
+                _logger.LogError($"Error banning IP {ipAddress}: {ex.Message}");
                 throw;
             }
         }

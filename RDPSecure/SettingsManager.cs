@@ -78,18 +78,36 @@ namespace RDPSecure
             {
                 lock (_fileLock)
                 {
-                    EnsureDirectoryExists();
-                    string json = JsonConvert.SerializeObject(bannedIPs, Formatting.Indented);
-                    File.WriteAllText(BannedIPsPath, json);
+                    int retryCount = 0;
+                    const int maxRetries = 3;
+                    const int delayMs = 500;
+
+                    while (retryCount < maxRetries)
+                    {
+                        try
+                        {
+                            EnsureDirectoryExists();
+                            string json = JsonConvert.SerializeObject(bannedIPs, Formatting.Indented);
+                            File.WriteAllText(BannedIPsPath, json);
+                            return; // Success, exit the method
+                        }
+                        catch (IOException ex) when (retryCount < maxRetries - 1)
+                        {
+                            retryCount++;
+                            Thread.Sleep(delayMs); // Wait before retrying
+                        }
+                    }
+
+                    // If we get here, all retries failed
+                    throw new IOException("Unable to save banned IPs after multiple attempts. File may be locked.");
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
-                    $"Error saving banned IPs: {ex.Message}",
-                    "Save Error",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error
+                // Log the error but don't show message box as this might be called from a background thread
+                File.AppendAllText(
+                    Path.Combine(AppDataPath, "error.log"),
+                    $"{DateTime.Now}: Error saving banned IPs: {ex.Message}\n"
                 );
             }
         }

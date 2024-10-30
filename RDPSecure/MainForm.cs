@@ -255,8 +255,23 @@ public partial class MainForm : Form
         UpdateWhitelistCount();
     }
 
+    public void RefreshWhitelistCount()
+    {
+        try
+        {
+            settings = SettingsManager.LoadSettings();  // Reload settings
+            int count = settings.WhitelistedIPs.Count;
+            lblWhitelistedCount.Text = count.ToString();
+            logger.LogInformation($"Whitelist count updated to: {count}");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Error refreshing whitelist count: {ex.Message}");
+        }
+    }
 
-    private void UpdateWhitelistCount()
+
+    public void UpdateWhitelistCount()
     {
         try
         {
