@@ -1,3 +1,4 @@
+using RDPSecure.Data;
 using RDPSecure.Logging;
 using RDPSecure.Services;
 
@@ -15,7 +16,7 @@ public partial class MainForm : Form
             gridBannedIPs.Rows.Add(
                 ban.IPAddress,
                 ban.Location,
-                ban.Duration.ToString(),
+                TimeFormatter.FormatDuration(ban.Duration),
                 ban.AttemptCount.ToString(),
                 "Banned"
             );
@@ -232,7 +233,7 @@ public partial class MainForm : Form
                 gridBannedIPs.Rows.Add(
                     e.IPAddress,
                     "Detecting...",
-                    e.Duration.ToString(),
+                    TimeFormatter.FormatDuration(e.Duration),
                     "Max attempts exceeded",
                     "Banned"
                 );
