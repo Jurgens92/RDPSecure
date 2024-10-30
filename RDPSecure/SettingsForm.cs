@@ -28,12 +28,27 @@ namespace RDPSecure
 
         private void SetupIPManagement()
         {
+            // Add TextChanged event handler for real-time validation
+            txtIPAddress.TextChanged += (s, e) => ValidateIPAddress();
+
+            // Initialize tooltip
+            if (toolTip1 == null)
+            {
+                toolTip1 = new ToolTip
+                {
+                    InitialDelay = 0,
+                    ReshowDelay = 0,
+                    ShowAlways = true
+                };
+            }
+
+            // Setup initial button states
+            btnAddWhitelist.Enabled = false;
+            btnAddBlacklist.Enabled = false;
+
             // Existing button click handlers
             btnAddWhitelist.Click += OnAddWhitelist;
             btnAddBlacklist.Click += OnAddBlacklist;
-
-            // Setup IP validation
-            txtIPAddress.TextChanged += (s, e) => ValidateIPAddress();
 
             // Setup context menu for the whitelist grid
             var contextMenu = new ContextMenuStrip();
@@ -46,9 +61,9 @@ namespace RDPSecure
 
             contextMenu.Items.AddRange(new ToolStripItem[]
             {
-            removeItem,
-            new ToolStripSeparator(),
-            toggleItem
+        removeItem,
+        new ToolStripSeparator(),
+        toggleItem
             });
 
             gridIPList.ContextMenuStrip = contextMenu;
@@ -104,12 +119,25 @@ namespace RDPSecure
         private void OnAddBlacklist(object? sender, EventArgs e)
         {
             string ip = txtIPAddress.Text.Trim();
+            var (isValid, errorMessage) = IPValidator.ValidateIPv4(ip);
 
-            // Validate IP
-            if (!IPAddress.TryParse(ip, out _))
+            if (!isValid)
             {
-                MessageBox.Show("Please enter a valid IP address.", "Invalid IP",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(
+                    errorMessage,
+                    "Invalid IP Address",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (IPValidator.IsReservedIP(ip))
+            {
+                MessageBox.Show(
+                    "Reserved IP addresses cannot be blacklisted.",
+                    "Invalid IP Address",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
                 return;
             }
 
@@ -207,10 +235,42 @@ namespace RDPSecure
         private void ValidateIPAddress()
         {
             string ip = txtIPAddress.Text.Trim();
-            bool isValid = IPAddress.TryParse(ip, out _);
+            var (isValid, errorMessage) = IPValidator.ValidateIPv4(ip);
 
-            btnAddWhitelist.Enabled = isValid;
-            txtIPAddress.BackColor = isValid ? Color.White : Color.MistyRose;
+            if (string.IsNullOrWhiteSpace(ip))
+            {
+                // Empty input - disable buttons but don't show error
+                btnAddWhitelist.Enabled = false;
+                btnAddBlacklist.Enabled = false;
+                txtIPAddress.BackColor = SystemColors.Window;
+                toolTip1.SetToolTip(txtIPAddress, "Enter an IP address");
+                return;
+            }
+
+            if (!isValid)
+            {
+                btnAddWhitelist.Enabled = false;
+                btnAddBlacklist.Enabled = false;
+                txtIPAddress.BackColor = Color.MistyRose;
+                toolTip1.SetToolTip(txtIPAddress, errorMessage);
+                return;
+            }
+
+            // Check for reserved IPs
+            if (IPValidator.IsReservedIP(ip))
+            {
+                btnAddWhitelist.Enabled = false;
+                btnAddBlacklist.Enabled = false;
+                txtIPAddress.BackColor = Color.MistyRose;
+                toolTip1.SetToolTip(txtIPAddress, "Reserved IP addresses cannot be added");
+                return;
+            }
+
+            // Valid IP
+            btnAddWhitelist.Enabled = true;
+            btnAddBlacklist.Enabled = true;
+            txtIPAddress.BackColor = Color.LightGreen;
+            toolTip1.SetToolTip(txtIPAddress, "Valid IP address");
         }
 
 
@@ -218,12 +278,25 @@ namespace RDPSecure
         private void OnAddWhitelist(object? sender, EventArgs e)
         {
             string ip = txtIPAddress.Text.Trim();
+            var (isValid, errorMessage) = IPValidator.ValidateIPv4(ip);
 
-            // Check if IP is valid
-            if (!IPAddress.TryParse(ip, out _))
+            if (!isValid)
             {
-                MessageBox.Show("Please enter a valid IP address.", "Invalid IP",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(
+                    errorMessage,
+                    "Invalid IP Address",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (IPValidator.IsReservedIP(ip))
+            {
+                MessageBox.Show(
+                    "Reserved IP addresses cannot be added to the whitelist.",
+                    "Invalid IP Address",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
                 return;
             }
 
@@ -231,44 +304,71 @@ namespace RDPSecure
             if (currentSettings.WhitelistedIPs.Any(w =>
                 string.Equals(w.IPAddress, ip, StringComparison.OrdinalIgnoreCase)))
             {
-                MessageBox.Show("This IP is already whitelisted.", "Duplicate IP",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(
+                    "This IP is already whitelisted.",
+                    "Duplicate IP",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
                 return;
             }
 
-            // Add to whitelist
-            var entry = new IPEntry
+            try
             {
-                IPAddress = ip,
-                Type = "Whitelist",
-                AddedDate = DateTime.Now,
-                IsEnabled = true
-            };
+                // Add to whitelist
+                var entry = new IPEntry
+                {
+                    IPAddress = ip,
+                    Type = "Whitelist",
+                    AddedDate = DateTime.Now,
+                    IsEnabled = true,
+                    Notes = "Added manually"
+                };
 
-            currentSettings.WhitelistedIPs.Add(entry);
+                currentSettings.WhitelistedIPs.Add(entry);
 
-            // Add to grid
-            gridIPList.Rows.Add(
-                entry.IPAddress,
-                entry.Type,
-                entry.AddedDate.ToString("yyyy-MM-dd HH:mm:ss"),
-                "Enabled"
-            );
+                // Add to grid
+                gridIPList.Rows.Add(
+                    entry.IPAddress,
+                    entry.Type,
+                    entry.AddedDate.ToString("yyyy-MM-dd HH:mm:ss"),
+                    "Enabled"
+                );
 
-            // If IP was banned, remove the ban
-            monitorService.RemoveBan(ip);
+                // If IP was banned, remove the ban
+                monitorService.RemoveBan(ip);
 
-            // Save settings immediately after adding
-            SaveSettings();
+                // Save settings immediately after adding
+                SaveSettings();
 
-            // Clear the input
-            txtIPAddress.Clear();
-            logger.LogInformation($"IP {ip} added to whitelist");
+                // Clear the input and reset validation
+                txtIPAddress.Clear();
+                txtIPAddress.BackColor = SystemColors.Window;
+                btnAddWhitelist.Enabled = false;
+                btnAddBlacklist.Enabled = false;
 
-            // Refresh the main form's whitelist count
-            if (Owner is MainForm mainForm)
+                logger.LogInformation($"IP {ip} added to whitelist");
+
+                // Show success message
+                MessageBox.Show(
+                    $"IP address {ip} has been successfully added to the whitelist.",
+                    "Success",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+
+                // Refresh the main form's whitelist count
+                if (Owner is MainForm mainForm)
+                {
+                    mainForm.BeginInvoke(() => mainForm.UpdateUIFromSettings());
+                }
+            }
+            catch (Exception ex)
             {
-                mainForm.BeginInvoke(() => mainForm.UpdateUIFromSettings());
+                logger.LogError($"Error adding IP to whitelist: {ex.Message}", ex);
+                MessageBox.Show(
+                    $"Error adding IP to whitelist: {ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
             }
         }
 
@@ -388,6 +488,8 @@ namespace RDPSecure
                 }
             };
         }
+
+
 
         private void SaveSettings()
         {

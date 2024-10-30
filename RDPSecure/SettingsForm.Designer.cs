@@ -58,6 +58,7 @@
             contextMenuIPList = new ContextMenuStrip(components);
             menuItemRemoveIP = new ToolStripMenuItem();
             menuItemToggleStatus = new ToolStripMenuItem();
+            toolTip1 = new ToolTip(components);
             tabControlSettings.SuspendLayout();
             tabProtection.SuspendLayout();
             gbBanDuration.SuspendLayout();
@@ -425,5 +426,6 @@
         private Button btnCancel;
         private Button btnOK;
         private Button btnAddBlacklist;
+        private ToolTip toolTip1;
     }
 }
