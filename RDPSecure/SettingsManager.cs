@@ -94,12 +94,17 @@ namespace RDPSecure
                         catch (IOException ex) when (retryCount < maxRetries - 1)
                         {
                             retryCount++;
+                            // Log the retry attempt
+                            File.AppendAllText(
+                                Path.Combine(AppDataPath, "error.log"),
+                                $"{DateTime.Now}: Retry {retryCount}/{maxRetries} saving banned IPs. Error: {ex.Message}\n"
+                            );
                             Thread.Sleep(delayMs); // Wait before retrying
                         }
                     }
 
                     // If we get here, all retries failed
-                    throw new IOException("Unable to save banned IPs after multiple attempts. File may be locked.");
+                    throw new IOException($"Unable to save banned IPs after {maxRetries} attempts. File may be locked.");
                 }
             }
             catch (Exception ex)
