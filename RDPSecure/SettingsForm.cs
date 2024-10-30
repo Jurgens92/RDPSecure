@@ -730,7 +730,7 @@ namespace RDPSecure
                 Visible = false,
                 Parent = groupBoxFirewall
             };
-
+            
             // Add click handler for the enable button
             btnEnableFirewall.Click += async (s, e) =>
             {
@@ -808,6 +808,174 @@ namespace RDPSecure
                     "Firewall Warning",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
+            }
+
+            var groupBoxAudit = new GroupBox
+            {
+                Text = "Audit Policy Status",
+                Location = new Point(20, 280), // Position below firewall group
+                Size = new Size(520, 120),
+                Parent = tabSystem
+            };
+
+            // Logon Audit Status
+            var lblLogonAuditText = new Label
+            {
+                Text = "Logon Auditing:",
+                Location = new Point(20, 30),
+                AutoSize = true,
+                Parent = groupBoxAudit
+            };
+
+            var lblLogonAudit = new Label
+            {
+                Location = new Point(130, 30),
+                AutoSize = true,
+                Parent = groupBoxAudit
+            };
+
+            // Other Logon Events Status
+            var lblOtherLogonText = new Label
+            {
+                Text = "Other Logon Events:",
+                Location = new Point(20, 55),
+                AutoSize = true,
+                Parent = groupBoxAudit
+            };
+
+            var lblOtherLogon = new Label
+            {
+                Location = new Point(130, 55),
+                AutoSize = true,
+                Parent = groupBoxAudit
+            };
+
+            // Enable button
+            var btnEnableAudit = new Button
+            {
+                Text = "Enable Auditing",
+                Location = new Point(20, 85),
+                Size = new Size(120, 23),
+                Parent = groupBoxAudit
+            };
+
+            btnEnableAudit.Click += async (s, e) =>
+            {
+                try
+                {
+                    if (!Program.IsAdministrator())
+                    {
+                        MessageBox.Show(
+                            "Administrator privileges are required to modify audit policies.",
+                            "Administrator Required",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    var result = MessageBox.Show(
+                        "Do you want to enable the required audit policies?\n\n" +
+                        "This will enable success and failure auditing for:\n" +
+                        "- Logon Events\n" +
+                        "- Other Logon/Logoff Events",
+                        "Enable Audit Policies",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Question);
+
+                    if (result == DialogResult.Yes)
+                    {
+                        Cursor = Cursors.WaitCursor;
+                        btnEnableAudit.Enabled = false;
+
+                        var auditManager = new AuditPolicyManager(logger);
+                        bool success = await Task.Run(() => auditManager.EnableAuditPolicies());
+
+                        if (success)
+                        {
+                            MessageBox.Show(
+                                "Audit policies have been successfully enabled.",
+                                "Success",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Information);
+
+                            // Refresh status
+                            UpdateAuditStatus(lblLogonAudit, lblOtherLogon, btnEnableAudit);
+                        }
+                        else
+                        {
+                            MessageBox.Show(
+                                "Failed to enable audit policies. Please check the logs for details.",
+                                "Error",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Error);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(
+                        $"Error enabling audit policies: {ex.Message}",
+                        "Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
+                finally
+                {
+                    Cursor = Cursors.Default;
+                    btnEnableAudit.Enabled = true;
+                }
+            };
+
+            // Timer to update audit status
+            var auditTimer = new System.Windows.Forms.Timer
+            {
+                Interval = 5000  // Check every 5 seconds
+            };
+
+            auditTimer.Tick += (s, e) => UpdateAuditStatus(lblLogonAudit, lblOtherLogon, btnEnableAudit);
+            auditTimer.Start();
+
+            // Initial status check
+            UpdateAuditStatus(lblLogonAudit, lblOtherLogon, btnEnableAudit);
+
+        }
+
+        private void UpdateAuditStatus(Label lblLogonAudit, Label lblOtherLogon, Button btnEnableAudit)
+        {
+            try
+            {
+                var auditManager = new AuditPolicyManager(logger);
+                var status = auditManager.CheckAuditPolicies();
+
+                // Update Logon status
+                lblLogonAudit.Text = status.LogonStatus;
+                lblLogonAudit.ForeColor = status.LogonEnabled ? Color.Green : Color.Red;
+
+                // Update Other Logon status
+                lblOtherLogon.Text = status.OtherLogonStatus;
+                lblOtherLogon.ForeColor = status.OtherLogonEnabled ? Color.Green : Color.Red;
+
+                // Update button state
+                btnEnableAudit.Enabled = !(status.LogonEnabled && status.OtherLogonEnabled);
+
+                // Show warning if policies are not properly configured
+                if (!status.LogonEnabled || !status.OtherLogonEnabled)
+                {
+                    if (WindowState == FormWindowState.Normal)
+                    {
+                        toolTip1.SetToolTip(btnEnableAudit,
+                            "Required audit policies are not properly configured.\n" +
+                            "Click to enable required policies.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError("Error updating audit status", ex);
+                lblLogonAudit.Text = "Error";
+                lblOtherLogon.Text = "Error";
+                lblLogonAudit.ForeColor = Color.Red;
+                lblOtherLogon.ForeColor = Color.Red;
             }
         }
 
