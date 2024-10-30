@@ -37,6 +37,15 @@ public partial class MainForm : Form
         {
             InitializeComponent();
 
+            // Set form and notification icons
+            string iconPath = Path.Combine(Application.StartupPath, "shield.ico");
+            if (File.Exists(iconPath))
+            {
+                using var icon = new Icon(iconPath);
+                this.Icon = icon;
+                notifyIconRDPSecure.Icon = icon;
+            }
+
             logger = new SecurityLogger();
             settings = SettingsManager.LoadSettings();
             monitorService = new RDPMonitorService(settings);
