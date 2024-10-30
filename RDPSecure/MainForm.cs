@@ -5,8 +5,6 @@ namespace RDPSecure;
 
 public partial class MainForm : Form
 {
-
-
     private void UpdateBannedIPsDisplay()
     {
         gridBannedIPs.Rows.Clear();
@@ -25,7 +23,6 @@ public partial class MainForm : Form
 
         lblActiveBansCount.Text = activeBans.Count.ToString();
     }
-
 
 
     private AppSettings settings;
@@ -47,7 +44,6 @@ public partial class MainForm : Form
             monitorService.LoginAttemptDetected += OnLoginAttemptDetected;
             monitorService.IPBanned += OnIPBanned;
 
-            // AddSampleData();
             SetupContextMenu();
             SetupEventHandlers();
             UpdateUIFromSettings();
@@ -248,7 +244,6 @@ public partial class MainForm : Form
         });
     }
 
-
     public void UpdateUIFromSettings()
     {
         // Update whitelisted count
@@ -270,7 +265,6 @@ public partial class MainForm : Form
         }
     }
 
-
     public void UpdateWhitelistCount()
     {
         try
@@ -284,8 +278,6 @@ public partial class MainForm : Form
         }
     }
 
-
-
     private void SetupEventHandlers()
     {
         //button clicks
@@ -298,7 +290,6 @@ public partial class MainForm : Form
         exitToolStripMenuItem.Click += OnExit;  // Exit
         notifyIconRDPSecure.DoubleClick += OnOpenDashboard; //Open Dashboard
 
-
         // whitelist click
         panelWhitelisted.Click += OnOpenWhitelistSettings;
         lblWhitelistedCount.Click += OnOpenWhitelistSettings;
@@ -306,8 +297,6 @@ public partial class MainForm : Form
         panelWhitelisted.Cursor = Cursors.Hand;
         lblWhitelistedCount.Cursor = Cursors.Hand;
         lblWhitelistedTitle.Cursor = Cursors.Hand;
-
-
 
         // system tray icon
         contextMenuTray.Items.Clear();
@@ -328,7 +317,6 @@ public partial class MainForm : Form
         notifyIconRDPSecure.ContextMenuStrip = contextMenuTray;
         notifyIconRDPSecure.Visible = true;
     }
-
 
     private void OnOpenWhitelistSettings(object? sender, EventArgs e)
     {
@@ -359,14 +347,12 @@ public partial class MainForm : Form
         }
     }
 
-
     private void OnOpenDashboard(object? sender, EventArgs e)
     {
         Show();
         WindowState = FormWindowState.Normal;
         Activate();
     }
-
 
     private void OnOpenSettings(object? sender, EventArgs e)
     {
@@ -420,8 +406,6 @@ public partial class MainForm : Form
         }
 
         base.OnFormClosing(e);
-    }
+    }  
 
-  
 }
-

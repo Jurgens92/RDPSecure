@@ -20,7 +20,6 @@ namespace RDPSecure
             this.monitorService = monitorService;
             logger = new SecurityLogger();
             currentSettings = SettingsManager.LoadSettings();
-
             LoadSettingsToForm();
             SetupIPManagement();
             btnOK.Click += btnOK_Click;
@@ -46,7 +45,7 @@ namespace RDPSecure
             btnAddWhitelist.Enabled = false;
             btnAddBlacklist.Enabled = false;
 
-            // Existing button click handlers
+            // Button click handlers
             btnAddWhitelist.Click += OnAddWhitelist;
             btnAddBlacklist.Click += OnAddBlacklist;
 
@@ -61,9 +60,9 @@ namespace RDPSecure
 
             contextMenu.Items.AddRange(new ToolStripItem[]
             {
-        removeItem,
-        new ToolStripSeparator(),
-        toggleItem
+                 removeItem,
+                 new ToolStripSeparator(),
+                 toggleItem
             });
 
             gridIPList.ContextMenuStrip = contextMenu;
@@ -97,9 +96,7 @@ namespace RDPSecure
                         // Remove from grid
                         gridIPList.Rows.Remove(row);
 
-                        // Save settings
                         SaveSettings();
-
                         logger.LogInformation($"IP {ip} removed from whitelist");
                     }
                     catch (Exception ex)
@@ -114,7 +111,6 @@ namespace RDPSecure
                 }
             }
         }
-
 
         private void OnAddBlacklist(object? sender, EventArgs e)
         {
@@ -189,18 +185,16 @@ namespace RDPSecure
                 Type = "Blacklist",
                 AddedDate = DateTime.Now,
                 IsEnabled = true,
-                Notes = string.Empty  // Empty notes
+                Notes = string.Empty
             };
 
             currentSettings.BlacklistedIPs.Add(entry);
 
             // Add to banned IPs in monitor service
-            monitorService.AddManualBan(ip, TimeSpan.FromDays(36500)); // Set a very long ban duration for manual blacklist
-
-            // Save settings
+            monitorService.AddManualBan(ip, TimeSpan.FromDays(36500)); // Duration for manual blacklist
+                        
             SaveSettings();
-
-            // Clear the input
+                        
             txtIPAddress.Clear();
 
             MessageBox.Show(
@@ -214,10 +208,10 @@ namespace RDPSecure
 
         private void SetupWhitelistManagement()
         {
-            // Setup the IP input validation
+            // IP input validation
             txtIPAddress.TextChanged += (s, e) => ValidateIPAddress();
 
-            // Add whitelist button handler
+            // Whitelist button handler
             btnAddWhitelist.Click += OnAddWhitelist;
 
             // Setup context menu for the grid
@@ -239,7 +233,7 @@ namespace RDPSecure
 
             if (string.IsNullOrWhiteSpace(ip))
             {
-                // Empty input - disable buttons but don't show error
+                // Empty input - disable buttons
                 btnAddWhitelist.Enabled = false;
                 btnAddBlacklist.Enabled = false;
                 txtIPAddress.BackColor = SystemColors.Window;
@@ -272,8 +266,6 @@ namespace RDPSecure
             txtIPAddress.BackColor = Color.LightGreen;
             toolTip1.SetToolTip(txtIPAddress, "Valid IP address");
         }
-
-
 
         private void OnAddWhitelist(object? sender, EventArgs e)
         {
@@ -355,7 +347,7 @@ namespace RDPSecure
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
 
-                // Refresh the main form's whitelist count
+                // Refresh main form's whitelist count
                 if (Owner is MainForm mainForm)
                 {
                     mainForm.BeginInvoke(() => mainForm.UpdateUIFromSettings());
@@ -399,7 +391,7 @@ namespace RDPSecure
                         // Save settings
                         SaveSettings();
 
-                        // Force main form to refresh - make sure to cast to MainForm
+                        // Force main form to refresh
                         if (Owner is MainForm mainForm)
                         {
                             mainForm.Invoke(new Action(() => mainForm.RefreshWhitelistCount()));
@@ -419,7 +411,6 @@ namespace RDPSecure
                 }
             }
         }
-
 
         private void OnToggleWhitelistStatus(object? sender, EventArgs e)
         {
@@ -489,8 +480,6 @@ namespace RDPSecure
             };
         }
 
-
-
         private void SaveSettings()
         {
             try
@@ -518,7 +507,6 @@ namespace RDPSecure
                 );
             }
         }
-
 
         private void LoadSettingsToForm()
         {
@@ -755,7 +743,6 @@ namespace RDPSecure
             // Initial status check
             UpdateFirewallStatus(lblFirewallStatus, btnEnableFirewall);
 
-
             // Add click handlers
             btnInstall.Click += async (s, e) => await InstallServiceAsync();
             btnUninstall.Click += async (s, e) => await UninstallServiceAsync();
@@ -952,20 +939,11 @@ namespace RDPSecure
             }
         }
 
-
-
         private bool IsAdministrator()
         {
             var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
             var principal = new System.Security.Principal.WindowsPrincipal(identity);
             return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
         }
-
-
-
-
-
-
-
     }
 }

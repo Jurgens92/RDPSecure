@@ -17,10 +17,10 @@ namespace RDPSecure.Services
         private bool _isMonitoring;
         private readonly EventLog _eventLog;
         private readonly ISecurityLogger _logger;
-
         public event EventHandler<IPLocationEventArgs>? IPLocationUpdated;
         public event EventHandler<LoginAttemptEventArgs>? LoginAttemptDetected;
         public event EventHandler<IPBanEventArgs>? IPBanned;
+       
         private void RefreshSettings()
         {
             try
@@ -35,7 +35,6 @@ namespace RDPSecure.Services
             }
         }
 
-
         private bool IsWhitelisted(string ipAddress)
         {
             // Reload settings to get the latest whitelist
@@ -44,7 +43,6 @@ namespace RDPSecure.Services
                 string.Equals(w.IPAddress, ipAddress, StringComparison.OrdinalIgnoreCase) &&
                 w.IsEnabled);
         }
-
 
         public void AddManualBan(string ipAddress, TimeSpan duration)
         {
@@ -84,7 +82,6 @@ namespace RDPSecure.Services
                     _bannedIPs[ipAddress] = banInfo;
                     // Save to JSON immediately
                     SettingsManager.SaveBannedIPs(_bannedIPs);
-                    // Update the single firewall rule with all banned IPs
                     UpdateFirewallRule();
                 }
 
@@ -98,7 +95,6 @@ namespace RDPSecure.Services
 
                 // Start location lookup
                 _ = UpdateLocationForIP(ipAddress);
-
                 _logger.LogInformation($"IP {ipAddress} manually banned for {duration.TotalDays:F1} days");
             }
             catch (Exception ex)
@@ -112,8 +108,6 @@ namespace RDPSecure.Services
             }
         }
 
-
-
         public RDPMonitorService(AppSettings settings)
         {
             try
@@ -125,10 +119,9 @@ namespace RDPSecure.Services
                 _loginAttempts = new Dictionary<string, List<DateTime>>(StringComparer.OrdinalIgnoreCase);
                 _bannedIPs = new Dictionary<string, BanInfo>(StringComparer.OrdinalIgnoreCase);
 
-                // Now initialize location service with the guaranteed non-null logger
+                // Initialize location service with the guaranteed non-null logger
                 _locationService = new IPLocationService(_logger);
-
-                // Rest of your initialization code...
+                                
                 _cleanupTimer = new System.Timers.Timer(60000);
                 _cleanupTimer.Elapsed += (s, e) => CleanupOldAttempts();
                 _cleanupTimer.Start();
@@ -147,11 +140,11 @@ namespace RDPSecure.Services
             }
             catch (Exception ex)
             {
-                // Since logger is initialized first, this should now be safe
                 _logger?.LogError($"Error initializing RDPMonitorService: {ex.Message}");
                 throw;
             }
         }
+
         private void CleanupOldAttempts()
         {
             try
@@ -190,7 +183,7 @@ namespace RDPSecure.Services
             {
                 if (_bannedIPs.TryGetValue(ipAddress, out var banInfo))
                 {
-                    // Check if it's a private IP first
+                    // Check if it's a private IP
                     if (IsPrivateIP(ipAddress))
                     {
                         banInfo.Location = "Private";
@@ -217,7 +210,6 @@ namespace RDPSecure.Services
                 _logger.LogError($"Error updating location for IP {ipAddress}: {ex.Message}");
             }
         }
-
 
         private void BanIP(string ipAddress)
         {
@@ -267,8 +259,7 @@ namespace RDPSecure.Services
                     catch (Exception ex)
                     {
                         _logger.LogError($"Failed to save banned IPs, but IP {ipAddress} is still banned in memory: {ex.Message}");
-                    }
-                    // Update firewall
+                    }                    
                     UpdateFirewallRule();
 
                     _logger.LogInformation(
@@ -284,7 +275,6 @@ namespace RDPSecure.Services
                         BanTime = DateTime.Now,
                         Duration = duration
                     });
-
                     // Start location lookup
                     _ = UpdateLocationForIP(ipAddress);
                 }
@@ -295,7 +285,6 @@ namespace RDPSecure.Services
                 throw;
             }
         }
-
 
         public bool IsIPBanned(string ipAddress)
         {
@@ -316,9 +305,7 @@ namespace RDPSecure.Services
                 foreach (var ban in savedBans)
                 {
                     _bannedIPs[ban.Key] = ban.Value;
-                }
-
-                // Update firewall rules
+                }                
                 UpdateFirewallRule();
 
                 _logger.LogInformation("Banned IPs cleaned up and synchronized with file");
@@ -329,8 +316,6 @@ namespace RDPSecure.Services
                 throw;
             }
         }
-
-
 
         public void StartMonitoring()
         {
@@ -358,7 +343,7 @@ namespace RDPSecure.Services
         {
             try
             {
-                // RDP failed login event ID is 4625
+                // RDP failed login event ID 4625
                 if (e.Entry.InstanceId == 4625)
                 {
                     string ipAddress = ExtractIPAddress(e.Entry.Message);
@@ -387,7 +372,6 @@ namespace RDPSecure.Services
                     _logger.LogInformation($"Login attempt from whitelisted IP: {ipAddress} - allowing");
                     return;
                 }
-
                 // Check if already banned
                 if (_bannedIPs.ContainsKey(ipAddress))
                 {
@@ -403,7 +387,6 @@ namespace RDPSecure.Services
                         UpdateFirewallRule();
                     }
                 }
-
                 // Record the attempt
                 lock (_loginAttempts)
                 {
@@ -469,11 +452,8 @@ namespace RDPSecure.Services
                     if (_loginAttempts.ContainsKey(ipAddress))
                     {
                         _loginAttempts.Remove(ipAddress);
-                    }
-
-                    // Update firewall rule
+                    }                    
                     UpdateFirewallRule();
-
                     // Save the updated banned IPs list to JSON
                     SettingsManager.SaveBannedIPs(_bannedIPs);
 
@@ -502,7 +482,7 @@ namespace RDPSecure.Services
 
                 if (activeBannedIPs.Any())
                 {
-                    // Create new rule with all banned IPs
+                    // Create rule with all banned IPs
                     var process = new Process
                     {
                         StartInfo = new ProcessStartInfo
@@ -578,7 +558,7 @@ namespace RDPSecure.Services
         {
             try
             {
-                // Double check whitelist before banning
+                // Check whitelist before banning
                 if (IsWhitelisted(ipAddress))
                 {
                     _logger.LogInformation($"IP {ipAddress} is whitelisted - not banning");
@@ -606,7 +586,6 @@ namespace RDPSecure.Services
                 _logger.LogError($"Error checking for ban: {ex.Message}");
             }
         }
-
 
         public void CleanupExpiredBans()
         {
@@ -658,9 +637,7 @@ namespace RDPSecure.Services
         private string ExtractIPAddress(string logMessage)
         {
             try
-            {
-                // Very basic IP extraction - you might need to adjust this
-                // based on your actual log format
+            {  
                 var match = System.Text.RegularExpressions.Regex.Match(
                     logMessage,
                     @"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b"

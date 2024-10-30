@@ -20,8 +20,6 @@ namespace RDPSecure
             _stateCheckTimer.Elapsed += OnStateCheck;
         }
 
-
-
         private void CleanupResources()
         {
             try
@@ -44,9 +42,6 @@ namespace RDPSecure
                 WriteToFile($"Error during cleanup: {ex.Message}");
             }
         }
-
-
-
 
         protected override void OnStart(string[] args)
         {
@@ -146,7 +141,7 @@ namespace RDPSecure
                     string tempPath = Path.Combine(Path.GetTempPath(), "RDPSecure_service.log");
                     File.AppendAllText(tempPath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} - {message}{Environment.NewLine}");
                 }
-                catch { /* At this point we can't do anything else */ }
+                catch {}
             }
         }
     }

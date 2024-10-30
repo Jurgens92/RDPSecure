@@ -21,7 +21,7 @@
             }
             catch (Exception ex)
             {
-                // Write to temp folder if we can't access ProgramData
+                // Write to temp folder if no access to ProgramData
                 var tempPath = Path.Combine(Path.GetTempPath(), "RDPSecure", "Logs");
                 Directory.CreateDirectory(tempPath);
                 File.WriteAllText(
@@ -52,7 +52,7 @@
                 }
                 catch
                 {
-                    // At this point we can't do anything else
+                    
                 }
             }
         }

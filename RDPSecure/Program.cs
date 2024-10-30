@@ -12,7 +12,7 @@ static class Program
     {
         try
         {
-            // Determine if we're running as a service or application
+            // Determine if running as a service or application
             if (!Environment.UserInteractive)
             {
                 // Running as a service

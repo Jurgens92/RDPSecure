@@ -15,11 +15,12 @@ namespace RDPSecure
 
         public static string LogsPath => Path.Combine(AppDataPath, "Logs");
         public static string SettingsPath => Path.Combine(AppDataPath, "settings.json");
-
         public static void EnsureDirectoriesExist()
         {
             Directory.CreateDirectory(AppDataPath);
             Directory.CreateDirectory(LogsPath);
         }
+
     }
+
 }

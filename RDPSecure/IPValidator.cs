@@ -68,7 +68,7 @@ namespace RDPSecure
 
                 return false;
             }
-            return true; // If we can't parse it, consider it reserved to be safe
+            return true;
         }
     }
 }

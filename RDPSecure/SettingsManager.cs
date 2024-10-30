@@ -15,7 +15,6 @@ namespace RDPSecure
         private static readonly string BannedIPsPath = Path.Combine(AppDataPath, "banned_ips.json");
         private static readonly object _fileLock = new object();
 
-
         public static AppSettings LoadSettings()
         {
             try
@@ -152,7 +151,7 @@ namespace RDPSecure
         }
     }
 
-    // Add this class to store ban information
+    // Class to store ban information
     public class BanInfo
     {
         public string IPAddress { get; set; } = string.Empty;
