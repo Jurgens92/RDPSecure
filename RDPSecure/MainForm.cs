@@ -6,6 +6,156 @@ namespace RDPSecure;
 
 public partial class MainForm : Form
 {
+
+    //------------------------------------------Modern Design (Dark Theme)
+      private static class ThemeColors
+    {
+        public static readonly Color FormBackground = Color.FromArgb(45, 45, 48);
+        public static readonly Color PanelBackground = Color.FromArgb(28, 28, 30);
+        public static readonly Color CardBackground = Color.FromArgb(37, 37, 38);
+        public static readonly Color TextPrimary = Color.FromArgb(240, 240, 240);
+        public static readonly Color TextSecondary = Color.FromArgb(180, 180, 180);
+        public static readonly Color GridHeader = Color.FromArgb(45, 45, 48);
+        public static readonly Color GridAlternate = Color.FromArgb(32, 32, 35);
+        public static readonly Color AccentBlue = Color.FromArgb(52, 152, 219);
+
+        public static readonly Color ActiveBansColor = Color.FromArgb(255, 69, 58);      // Red
+        public static readonly Color AttemptsColor = Color.FromArgb(52, 152, 219);       // Blue
+        public static readonly Color WhitelistedColor = Color.FromArgb(50, 195, 50);     // Green
+    }
+
+    private void ApplyDarkTheme()
+    {
+        // Form level styling
+        this.BackColor = ThemeColors.FormBackground;
+
+        // Stats panel styling
+        panelStats.BackColor = ThemeColors.FormBackground;
+
+        // Style the stat panels
+        StyleStatPanel(panelActiveBans, lblActiveBansTitle, lblActiveBansCount, "Active Bans", ThemeColors.ActiveBansColor);
+        StyleStatPanel(panelRecentAttempts, lblRecentAttemptsTitle, lblRecentAttemptsCount, "Recent Attempts (24h)", ThemeColors.AttemptsColor);
+        StyleStatPanel(panelWhitelisted, lblWhitelistedTitle, lblWhitelistedCount, "Whitelisted IPs", ThemeColors.WhitelistedColor);
+
+        // Style buttons
+        StyleDarkButton(btnSettings);
+        StyleDarkButton(btnExit);
+
+        // Style the grid panel
+        panelGrid.BackColor = ThemeColors.FormBackground;
+
+        // Style the grid
+        StyleDarkGrid();
+    }
+
+    private void StyleStatPanel(Panel panel, Label titleLabel, Label countLabel, string title, Color accentColor)
+    {
+        // Panel styling
+        panel.BackColor = ThemeColors.CardBackground;
+        panel.BorderStyle = BorderStyle.None;
+
+        // Title label styling
+        titleLabel.Text = title;
+        titleLabel.ForeColor = ThemeColors.TextSecondary;
+        titleLabel.Font = new Font("Segoe UI", 9.75F);
+        titleLabel.BackColor = Color.Transparent;
+
+        // Count label styling
+        countLabel.ForeColor = accentColor;
+        countLabel.Font = new Font("Segoe UI", 24F, FontStyle.Bold);
+        countLabel.BackColor = Color.Transparent;
+
+        // Add subtle border effect
+        panel.Paint += (s, e) =>
+        {
+            var darkBorder = Color.FromArgb(20, 20, 20);
+            using (var pen = new Pen(darkBorder))
+            {
+                e.Graphics.DrawRectangle(pen, 0, 0, panel.Width - 1, panel.Height - 1);
+            }
+        };
+    }
+
+    private void StyleDarkButton(Button button)
+    {
+        button.FlatStyle = FlatStyle.Flat;
+        button.FlatAppearance.BorderSize = 0;
+        button.BackColor = ThemeColors.AccentBlue;
+        button.ForeColor = Color.White;
+        button.Font = new Font("Segoe UI", 9F);
+        button.Cursor = Cursors.Hand;
+
+        // Hover effect
+        button.MouseEnter += (s, e) =>
+        {
+            button.BackColor = ControlPaint.Light(ThemeColors.AccentBlue);
+        };
+        button.MouseLeave += (s, e) =>
+        {
+            button.BackColor = ThemeColors.AccentBlue;
+        };
+    }
+    private void StyleDarkGrid()
+    {
+        gridBannedIPs.BackgroundColor = ThemeColors.PanelBackground;
+        gridBannedIPs.GridColor = Color.FromArgb(50, 50, 50);
+        gridBannedIPs.BorderStyle = BorderStyle.None;
+        gridBannedIPs.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
+
+        // Header styling
+        var headerStyle = gridBannedIPs.ColumnHeadersDefaultCellStyle;
+        headerStyle.BackColor = ThemeColors.GridHeader;
+        headerStyle.ForeColor = ThemeColors.TextPrimary;
+        headerStyle.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
+        headerStyle.SelectionBackColor = ThemeColors.GridHeader;
+        headerStyle.SelectionForeColor = ThemeColors.TextPrimary;
+        gridBannedIPs.EnableHeadersVisualStyles = false;
+
+        // Row styling
+        var defaultStyle = gridBannedIPs.DefaultCellStyle;
+        defaultStyle.BackColor = ThemeColors.CardBackground;
+        defaultStyle.ForeColor = ThemeColors.TextPrimary;
+        defaultStyle.SelectionBackColor = ThemeColors.AccentBlue;
+        defaultStyle.SelectionForeColor = Color.White;
+        defaultStyle.Font = new Font("Segoe UI", 9F);
+
+        // Alternate row styling
+        var alternateStyle = gridBannedIPs.AlternatingRowsDefaultCellStyle;
+        alternateStyle.BackColor = ThemeColors.GridAlternate;
+        alternateStyle.ForeColor = ThemeColors.TextPrimary;
+        alternateStyle.SelectionBackColor = ThemeColors.AccentBlue;
+        alternateStyle.SelectionForeColor = Color.White;
+
+        // Fix the "Status" column style for banned entries
+        gridBannedIPs.Columns["Column5"].DefaultCellStyle.ForeColor = ThemeColors.ActiveBansColor;
+
+        // Handle status colors in CellFormatting event
+        gridBannedIPs.CellFormatting += (s, e) =>
+        {
+            if (e.ColumnIndex == gridBannedIPs.Columns["Column5"].Index)
+            {
+                if (e.Value?.ToString() == "Banned")
+                {
+                    e.CellStyle.ForeColor = ThemeColors.ActiveBansColor;
+                }
+            }
+        };
+    }
+    private void InitializeDarkTheme()
+    {
+        ApplyDarkTheme();
+
+        // Enable double buffering for smoother rendering
+        this.SetStyle(
+            ControlStyles.OptimizedDoubleBuffer |
+            ControlStyles.AllPaintingInWmPaint |
+            ControlStyles.UserPaint,
+            true
+        );
+    }
+
+    //------------------------------------------Modern Design (Dark Theme)
+
     private void UpdateBannedIPsDisplay()
     {
         gridBannedIPs.Rows.Clear();
@@ -35,7 +185,8 @@ public partial class MainForm : Form
     {
         try
         {
-            InitializeComponent();
+            InitializeComponent();         
+            InitializeDarkTheme();
 
             // Set form and notification icons
             string iconPath = Path.Combine(Application.StartupPath, "shield.ico");
@@ -72,6 +223,7 @@ public partial class MainForm : Form
             throw;
         }
     }
+  
 
 
     private void SetupContextMenu()
