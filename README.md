@@ -8,7 +8,6 @@ RDPSecure is a C# application designed to enhance the security of Remote Desktop
 - **Brute Force Detection**: Identifies and blocks IP addresses that show patterns of brute force attacks.
 - **Customizable Settings**: Allows users to define rules for blocking IP addresses.
 - **Detailed Logging**: Records all connection attempts and actions taken for review.
-- **Alert Notifications**: Sends alerts when suspicious activity is detected.
 
 ## How It Works
 
