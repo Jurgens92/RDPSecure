@@ -72,8 +72,6 @@ public partial class MainForm : Form
             throw;
         }
     }
-  
-
 
     private void SetupContextMenu()
     {
@@ -213,7 +211,6 @@ public partial class MainForm : Form
             }
         }
     }
-
 
     private void OnLoginAttemptDetected(object? sender, LoginAttemptEventArgs e)
     {
