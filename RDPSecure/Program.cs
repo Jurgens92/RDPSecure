@@ -2,14 +2,34 @@ using Microsoft.Extensions.DependencyInjection;
 using RDPSecure.Services;
 using RDPSecure.Logging;
 using System.ServiceProcess;
+using System.Threading;
 
 namespace RDPSecure;
 
 static class Program
 {
+    private static Mutex? _mutex;
     [STAThread]
     static void Main(string[] args)
     {
+        const string appName = "RDPSecureApp";
+        _mutex = new Mutex(true, appName, out bool createdNew);
+
+        if (!createdNew)
+        {
+            // Application is already running
+            if (Environment.UserInteractive)
+            {
+                MessageBox.Show(
+                    "The application is already running.",
+                    "RDPSecure",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
+            }
+            return;
+        }
+
         try
         {
             // Determine if running as a service or application
