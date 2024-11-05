@@ -6,8 +6,9 @@ using System.Threading;
 
 namespace RDPSecure;
 
-static class Program
+public static class Program
 {
+    public const string VERSION = "1.0.0";
     private static Mutex? _mutex;
     [STAThread]
     static void Main(string[] args)

@@ -25,7 +25,8 @@ public partial class MainForm : Form
         lblActiveBansCount.Text = activeBans.Count.ToString();
     }
 
-
+    private readonly UpdateManager _updateManager;
+    private readonly System.Windows.Forms.Timer _updateTimer;
     private AppSettings settings;
     private readonly RDPMonitorService monitorService;
     private readonly SecurityLogger logger;
@@ -53,7 +54,23 @@ public partial class MainForm : Form
             // Subscribe to events
             monitorService.LoginAttemptDetected += OnLoginAttemptDetected;
             monitorService.IPBanned += OnIPBanned;
+            // Initialize update manager
+            _updateManager = new UpdateManager(
+                "http://localhost:8000",  // Your update server URL
+                Program.VERSION,
+                logger
+            );
 
+            // Setup update check timer
+            _updateTimer = new System.Windows.Forms.Timer
+            {
+                Interval = 60 * 60 * 1000  // Check every hour
+            };
+            _updateTimer.Tick += async (s, e) => await CheckForUpdates();
+            _updateTimer.Start();
+
+            // Initial update check
+            _ = CheckForUpdates();
             SetupContextMenu();
             SetupEventHandlers();
             UpdateUIFromSettings();
@@ -72,6 +89,43 @@ public partial class MainForm : Form
             throw;
         }
     }
+
+    private async Task CheckForUpdates(bool showNoUpdates = false)
+    {
+        try
+        {
+            var updateInfo = await _updateManager.CheckForUpdates();
+
+            if (updateInfo != null)
+            {
+                // Show update form
+                using var updateForm = new UpdateForm(_updateManager, updateInfo, logger);
+                if (updateForm.ShowDialog(this) == DialogResult.OK)
+                {
+                    // Update was installed, application will restart
+                    Close();
+                }
+            }
+            else if (showNoUpdates)
+            {
+                MessageBox.Show(
+                    "You are running the latest version.",
+                    "No Updates Available",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError("Error checking for updates", ex);
+            MessageBox.Show(
+                $"Error checking for updates: {ex.Message}",
+                "Update Error",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
+    }
+
 
     private void SetupContextMenu()
     {
@@ -324,6 +378,18 @@ public partial class MainForm : Form
         notifyIconRDPSecure.Icon = SystemIcons.Shield;
         notifyIconRDPSecure.ContextMenuStrip = contextMenuTray;
         notifyIconRDPSecure.Visible = true;
+
+        //updates form
+        var updateItem = new ToolStripMenuItem("Check for Updates");
+        updateItem.Click += async (s, e) => await CheckForUpdates(true);
+        contextMenuTray.Items.Insert(
+      contextMenuTray.Items.Count - 2,  // Insert before separator and Exit
+      updateItem
+  );
+        contextMenuTray.Items.Insert(
+            contextMenuTray.Items.Count - 2,
+            new ToolStripSeparator()
+        );
     }
 
     private void OnOpenWhitelistSettings(object? sender, EventArgs e)
@@ -410,6 +476,8 @@ public partial class MainForm : Form
         }
         else
         {
+            _updateTimer?.Stop();
+            _updateTimer?.Dispose();
             monitorService.StopMonitoring();
         }
 
