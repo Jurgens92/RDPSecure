@@ -263,7 +263,7 @@ namespace RDPSecure
             // Create an IPAddress instance for reserved check
             if (!IPAddress.TryParse(ip, out IPAddress? parsedIP))
             {
-                // This shouldn't happen since we already validated, but handle it just in case
+                // This shouldn't happen since already validated, but handle it just in case
                 btnAddWhitelist.Enabled = false;
                 btnAddBlacklist.Enabled = false;
                 txtIPAddress.BackColor = Color.MistyRose;

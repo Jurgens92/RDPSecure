@@ -102,7 +102,7 @@ namespace RDPSecure
                         }
                     }
 
-                    // If we get here, all retries failed
+                    // All retries failed
                     throw new IOException($"Unable to save banned IPs after {maxRetries} attempts. File may be locked.");
                 }
             }

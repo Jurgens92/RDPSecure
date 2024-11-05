@@ -35,7 +35,7 @@ namespace RDPSecure.Logging
             catch (Exception ex)
             {
                 Debug.WriteLine($"Failed to create log directory: {ex.Message}");
-                // Fall back to temp directory if we can't access ProgramData
+                // Fall back to temp directory if can't access ProgramData
                 _logPath = Path.Combine(Path.GetTempPath(), "RDPSecure", "Logs");
                 Directory.CreateDirectory(_logPath);
             }
@@ -95,7 +95,7 @@ namespace RDPSecure.Logging
             }
             catch (Exception ex)
             {
-                // If we can't write to the main log, try writing to temp directory
+                // If can't write to main log, try writing to temp directory
                 try
                 {
                     var tempLog = Path.Combine(Path.GetTempPath(), "RDPSecure", "fallback.log");
@@ -105,7 +105,7 @@ namespace RDPSecure.Logging
                 }
                 catch
                 {
-                    // At this point we can only write to debug output
+                    // Write to debug output
                     Debug.WriteLine($"CRITICAL: Failed to write to any log file: {ex.Message}");
                 }
             }
