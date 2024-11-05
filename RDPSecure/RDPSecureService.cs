@@ -10,6 +10,8 @@ namespace RDPSecure
         private RDPMonitorService? _monitorService;
         private ISecurityLogger? _logger;
         private readonly System.Timers.Timer _stateCheckTimer;
+        private DateTime _lastStateLogTime = DateTime.MinValue;
+        private const int STATE_LOG_INTERVAL_MINUTES = 60; // Log state once per hour
         public RDPSecureService()
         {
             InitializeComponent();
@@ -79,8 +81,12 @@ namespace RDPSecure
                     var savedBans = SettingsManager.LoadBannedIPs();
                     var settings = SettingsManager.LoadSettings();
 
-                    // Log current state
-                    WriteToFile($"State check - Active bans: {savedBans.Count}, Max attempts: {settings.MaxAttempts}");
+                    // Log current state only once per hour
+                    if (DateTime.Now - _lastStateLogTime > TimeSpan.FromMinutes(STATE_LOG_INTERVAL_MINUTES))
+                    {
+                        WriteToFile($"State check - Active bans: {savedBans.Count}, Max attempts: {settings.MaxAttempts}");
+                        _lastStateLogTime = DateTime.Now;
+                    }
 
                     // Update service state
                     _monitorService.OnSettingsChanged();
