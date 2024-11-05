@@ -343,7 +343,7 @@ partial class MainForm
         MinimizeBox = false;
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
-        Text = "RDP Secure";
+        Text = "RDP Secure " + Program.VERSION;
         panelStats.ResumeLayout(false);
         panelWhitelisted.ResumeLayout(false);
         panelWhitelisted.PerformLayout();
