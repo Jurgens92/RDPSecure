@@ -27,7 +27,7 @@ namespace RDPSecure
 
         private void SetupIPManagement()
         {
-            // Add TextChanged event handler for real-time validation
+            // Eevent handler for real-time validation
             txtIPAddress.TextChanged += (s, e) => ValidateIPAddress();
 
             // Initialize tooltip

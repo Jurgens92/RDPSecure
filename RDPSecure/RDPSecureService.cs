@@ -87,7 +87,7 @@ namespace RDPSecure
                         WriteToFile($"State check - Active bans: {savedBans.Count}, Max attempts: {settings.MaxAttempts}");
                         _lastStateLogTime = DateTime.Now;
                     }
-
+                    
                     // Update service state
                     _monitorService.OnSettingsChanged();
                     _monitorService.CleanupBannedIPs();
