@@ -56,7 +56,7 @@ public partial class MainForm : Form
             monitorService.IPBanned += OnIPBanned;
             // Initialize update manager
             _updateManager = new UpdateManager(
-                "http://localhost:8000",  // Your update server URL
+                "https://raw.githubusercontent.com/jurgens92/RDPSecureUpdates/main",  // Your update server URL
                 Program.VERSION,
                 logger
             );
