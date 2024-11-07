@@ -30,6 +30,7 @@ public partial class MainForm : Form
     private AppSettings settings;
     private readonly RDPMonitorService monitorService;
     private readonly SecurityLogger logger;
+    private readonly System.Windows.Forms.Timer _attemptsUpdateTimer;
 
 
     public MainForm()
@@ -50,6 +51,25 @@ public partial class MainForm : Form
             logger = new SecurityLogger();
             settings = SettingsManager.LoadSettings();
             monitorService = new RDPMonitorService(settings);
+
+            lblRecentAttemptsCount.Text = monitorService.GetRecentAttemptsCount().ToString();
+
+            _attemptsUpdateTimer = new System.Windows.Forms.Timer
+            {
+                Interval = 30000  // Update every 30 seconds
+            };
+            _attemptsUpdateTimer.Tick += (s, e) =>
+            {
+                try
+                {
+                    lblRecentAttemptsCount.Text = monitorService.GetRecentAttemptsCount().ToString();
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError("Error updating attempts count", ex);
+                }
+            };
+            _attemptsUpdateTimer.Start();
 
             // Subscribe to events
             monitorService.LoginAttemptDetected += OnLoginAttemptDetected;
@@ -478,10 +498,38 @@ public partial class MainForm : Form
         {
             _updateTimer?.Stop();
             _updateTimer?.Dispose();
+            _attemptsUpdateTimer?.Stop();
+            _attemptsUpdateTimer?.Dispose();
             monitorService.StopMonitoring();
         }
 
         base.OnFormClosing(e);
-    }  
+    }
+
+    private void UpdateAttemptsDisplay()
+    {
+        try
+        {
+            lblRecentAttemptsCount.Text = monitorService.GetRecentAttemptsCount().ToString();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError("Error updating attempts display", ex);
+        }
+    }
+
+    public void RefreshUI()
+    {
+        try
+        {
+            UpdateAttemptsDisplay();
+            UpdateBannedIPsDisplay();
+            UpdateWhitelistCount();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError("Error refreshing UI", ex);
+        }
+    }
 
 }

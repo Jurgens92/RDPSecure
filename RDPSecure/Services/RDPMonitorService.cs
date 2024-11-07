@@ -2,17 +2,19 @@
 using RDPSecure.Services;
 using RDPSecure.Logging;
 using System.Diagnostics;
+using RDPSecure.Data;
 
 namespace RDPSecure.Services
 {
-    public class RDPMonitorService : IRDPMonitorService
+    public class RDPMonitorService : IRDPMonitorService, IDisposable
     {
         private readonly System.Timers.Timer _cleanupTimer;
         private readonly IPLocationService _locationService;
         private const string FIREWALL_RULE_NAME = "RDPSecure-Blocked-IPs";
         private AppSettings _settings;
         private readonly object _settingsLock = new object();
-        private readonly Dictionary<string, List<DateTime>> _loginAttempts;
+       // private readonly Dictionary<string, List<DateTime>> _loginAttempts;
+        private readonly LoginAttemptsManager _attemptsManager;
         private readonly Dictionary<string, BanInfo> _bannedIPs;
         private bool _isMonitoring;
         private readonly EventLog _eventLog;
@@ -123,14 +125,17 @@ namespace RDPSecure.Services
                 _logger = new SecurityLogger();
 
                 _settings = settings;
-                _loginAttempts = new Dictionary<string, List<DateTime>>(StringComparer.OrdinalIgnoreCase);
+                //_loginAttempts = new Dictionary<string, List<DateTime>>(StringComparer.OrdinalIgnoreCase);
                 _bannedIPs = new Dictionary<string, BanInfo>(StringComparer.OrdinalIgnoreCase);
+               
+                // Initialize the attempts manager
+                _attemptsManager = new LoginAttemptsManager(_logger, settings.TimeWindow);
 
                 // Initialize location service with the guaranteed non-null logger
                 _locationService = new IPLocationService(_logger);
                                 
                 _cleanupTimer = new System.Timers.Timer(60000);
-                _cleanupTimer.Elapsed += (s, e) => CleanupOldAttempts();
+                _cleanupTimer.Elapsed += (s, e) => CleanupBannedIPs();
                 _cleanupTimer.Start();
 
                 var savedBans = SettingsManager.LoadBannedIPs();
@@ -152,27 +157,6 @@ namespace RDPSecure.Services
             }
         }
 
-        private void CleanupOldAttempts()
-        {
-            try
-            {
-                lock (_loginAttempts)
-                {
-                    var cutoffTime = DateTime.Now.AddMinutes(-_settings.TimeWindow);
-                    foreach (var ip in _loginAttempts.Keys.ToList())
-                    {
-                        _loginAttempts[ip] = _loginAttempts[ip]
-                            .Where(t => t > cutoffTime)
-                            .ToList();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Error cleaning up old attempts: {ex.Message}");
-            }
-        }
-
         private async void UpdateLocationsForExistingBans()
         {
             foreach (var ban in _bannedIPs.Values)
@@ -181,6 +165,18 @@ namespace RDPSecure.Services
                 {
                     await UpdateLocationForIP(ban.IPAddress);
                 }
+            }
+        }
+        public int GetRecentAttemptsCount()
+        {
+            try
+            {
+                return _attemptsManager.GetTotalAttempts(TimeSpan.FromHours(24));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error getting recent attempts count: {ex.Message}");
+                return 0;
             }
         }
 
@@ -250,8 +246,7 @@ namespace RDPSecure.Services
                         BanTime = DateTime.Now,
                         Duration = duration,
                         ExpiryTime = DateTime.Now.Add(duration),
-                        AttemptCount = _loginAttempts.ContainsKey(ipAddress) ?
-                        _loginAttempts[ipAddress].Count : 0,
+                        AttemptCount = _attemptsManager.GetRecentAttemptCount(ipAddress),
                         Location = IsPrivateIP(ipAddress) ? "Private" : "Detecting..."  // Set Private immediately for private IPs
                     };
 
@@ -370,81 +365,60 @@ namespace RDPSecure.Services
         {
             try
             {
-                // Log the event immediately
-                _logger.LogInformation($"Received login attempt from IP: {ipAddress}");
+                _logger.LogInformation($"Processing login attempt from IP: {ipAddress}");
 
-                // First check whitelist
+                // Check whitelist first
                 if (IsWhitelisted(ipAddress))
                 {
                     _logger.LogInformation($"Login attempt from whitelisted IP: {ipAddress} - allowing");
                     return;
                 }
-                // Check if already banned
-                if (_bannedIPs.ContainsKey(ipAddress))
+
+                // Check if IP is currently banned
+                if (_bannedIPs.TryGetValue(ipAddress, out var banInfo))
                 {
-                    if (DateTime.Now < _bannedIPs[ipAddress].ExpiryTime)
+                    if (DateTime.Now < banInfo.ExpiryTime)
                     {
                         _logger.LogInformation($"Blocked attempt from banned IP: {ipAddress}");
                         return;
                     }
-                    else
-                    {
-                        // Remove expired ban
-                        _bannedIPs.Remove(ipAddress);
-                        UpdateFirewallRule();
-                    }
+
+                    // Remove expired ban
+                    _bannedIPs.Remove(ipAddress);
+                    UpdateFirewallRule();
                 }
+
                 // Record the attempt
-                lock (_loginAttempts)
+                _attemptsManager.AddAttempt(ipAddress, DateTime.Now);
+
+                // Get current count within time window
+                int recentAttempts = _attemptsManager.GetRecentAttemptCount(ipAddress);
+
+                _logger.LogInformation(
+                    $"IP: {ipAddress} - Attempt {recentAttempts} of {_settings.MaxAttempts} allowed " +
+                    $"(Window: {_settings.TimeWindow} minutes)"
+                );
+
+                // Raise the LoginAttemptDetected event
+                LoginAttemptDetected?.Invoke(this, new LoginAttemptEventArgs
                 {
-                    if (!_loginAttempts.ContainsKey(ipAddress))
-                    {
-                        _loginAttempts[ipAddress] = new List<DateTime>();
-                    }
+                    IPAddress = ipAddress,
+                    Timestamp = DateTime.Now
+                });
 
-                    _loginAttempts[ipAddress].Add(DateTime.Now);
-
-                    // Get current count within time window
-                    var cutoffTime = DateTime.Now.AddMinutes(-_settings.TimeWindow);
-                    var recentAttempts = _loginAttempts[ipAddress].Count(t => t > cutoffTime);
-
+                // Check if attempts exceed threshold
+                if (recentAttempts >= _settings.MaxAttempts)
+                {
                     _logger.LogInformation(
-                        $"IP: {ipAddress} - Attempt {recentAttempts} of {_settings.MaxAttempts} allowed " +
-                        $"(Window: {_settings.TimeWindow} minutes)"
+                        $"IP {ipAddress} has exceeded maximum attempts " +
+                        $"({recentAttempts}/{_settings.MaxAttempts}). Initiating ban..."
                     );
-
-                    // Raise the event
-                    LoginAttemptDetected?.Invoke(this, new LoginAttemptEventArgs
-                    {
-                        IPAddress = ipAddress,
-                        Timestamp = DateTime.Now
-                    });
-
-                    // Check for ban
-                    if (recentAttempts >= _settings.MaxAttempts)
-                    {
-                        _logger.LogInformation(
-                            $"IP {ipAddress} has exceeded maximum attempts " +
-                            $"({recentAttempts}/{_settings.MaxAttempts}). Initiating ban..."
-                        );
-                        BanIP(ipAddress);
-                    }
+                    BanIP(ipAddress);
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError($"Error processing login attempt for IP {ipAddress}: {ex.Message}");
-            }
-        }
-
-        private void CleanOldAttempts(string ipAddress)
-        {
-            if (_loginAttempts.ContainsKey(ipAddress) && _loginAttempts[ipAddress] != null)
-            {
-                var cutoffTime = DateTime.Now.AddMinutes(-_settings.TimeWindow);
-                _loginAttempts[ipAddress] = _loginAttempts[ipAddress]
-                    .Where(attempt => attempt > cutoffTime)
-                    .ToList();
             }
         }
 
@@ -456,12 +430,10 @@ namespace RDPSecure.Services
                 if (_bannedIPs.Remove(ipAddress))
                 {
                     // Remove from login attempts tracking
-                    if (_loginAttempts.ContainsKey(ipAddress))
-                    {
-                        _loginAttempts.Remove(ipAddress);
-                    }                    
+                    _attemptsManager.RemoveAttempts(ipAddress);
+
+                    // Update firewall and save changes
                     UpdateFirewallRule();
-                    // Save the updated banned IPs list to JSON
                     SettingsManager.SaveBannedIPs(_bannedIPs);
 
                     _logger.LogInformation($"Ban removed for IP: {ipAddress}");
@@ -583,40 +555,12 @@ namespace RDPSecure.Services
         public void Dispose()
         {
             _eventLog?.Dispose();
-            _cleanupTimer?.Dispose();  
+            _cleanupTimer?.Dispose();
+            _attemptsManager?.Dispose();
         }
-
-        private void CheckForBan(string ipAddress)
+        public int GetTotalRecentAttempts()
         {
-            try
-            {
-                // Check whitelist before banning
-                if (IsWhitelisted(ipAddress))
-                {
-                    _logger.LogInformation($"IP {ipAddress} is whitelisted - not banning");
-                    return;
-                }
-
-                lock (_settingsLock)
-                {
-                    var recentAttempts = _loginAttempts[ipAddress]
-                        .Where(t => t > DateTime.Now.AddMinutes(-_settings.TimeWindow))
-                        .Count();
-
-                    _logger.LogInformation($"Checking ban for IP {ipAddress}: " +
-                        $"Recent attempts: {recentAttempts}, " +
-                        $"Max allowed: {_settings.MaxAttempts}");
-
-                    if (recentAttempts >= _settings.MaxAttempts)
-                    {
-                        BanIP(ipAddress);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Error checking for ban: {ex.Message}");
-            }
+            return _attemptsManager.GetTotalAttempts(TimeSpan.FromHours(24));
         }
 
         public void CleanupExpiredBans()
@@ -707,8 +651,31 @@ namespace RDPSecure.Services
 
         public void OnSettingsChanged()
         {
-            RefreshSettings();
-            _logger.LogInformation("Settings change detected and refreshed");
+            try
+            {
+                var newSettings = SettingsManager.LoadSettings();
+
+                // If time window changed, we need to reinitialize the attempts manager
+                if (newSettings.TimeWindow != _settings.TimeWindow)
+                {
+                    var oldManager = _attemptsManager;
+                    // Create new manager with new time window
+                    var newManager = new LoginAttemptsManager(_logger, newSettings.TimeWindow);
+
+                    // Update the field
+                    //_attemptsManager = newManager;
+
+                    // Dispose old manager
+                    oldManager.Dispose();
+                }
+
+                _settings = newSettings;
+                _logger.LogInformation("Settings updated successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error updating settings: {ex.Message}");
+            }
         }
 
     }

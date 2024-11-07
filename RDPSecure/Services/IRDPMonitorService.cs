@@ -10,6 +10,7 @@ namespace RDPSecure.Services
     {
         void StartMonitoring();
         void StopMonitoring();
+        int GetRecentAttemptsCount();
         event EventHandler<LoginAttemptEventArgs> LoginAttemptDetected;
         event EventHandler<IPBanEventArgs> IPBanned;
     }
