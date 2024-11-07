@@ -238,19 +238,45 @@ namespace RDPSecure
 
         private void ValidateIPAddress()
         {
-            string ip = txtIPAddress.Text.Trim();
-            var validation = IPValidator.ValidateIP(ip);
+            string input = txtIPAddress.Text.Trim();
 
-            if (string.IsNullOrWhiteSpace(ip))
+            if (string.IsNullOrWhiteSpace(input))
             {
-                // Empty input - disable buttons but don't show error
                 btnAddWhitelist.Enabled = false;
                 btnAddBlacklist.Enabled = false;
                 txtIPAddress.BackColor = SystemColors.Window;
-                toolTip1.SetToolTip(txtIPAddress, "Enter an IP address");
+                toolTip1.SetToolTip(txtIPAddress, "Enter an IP address or subnet (CIDR notation)");
                 return;
             }
 
+            // Check if input is in CIDR notation
+            if (input.Contains("/"))
+            {
+                var (isValid, errorMessage, subnetInfo) = SubnetUtils.ValidateSubnet(input);
+                if (!isValid || subnetInfo == null)
+                {
+                    btnAddWhitelist.Enabled = false;
+                    btnAddBlacklist.Enabled = false;
+                    txtIPAddress.BackColor = Color.MistyRose;
+                    toolTip1.SetToolTip(txtIPAddress, errorMessage ?? "Invalid subnet format");
+                    return;
+                }
+
+                btnAddWhitelist.Enabled = true;
+                btnAddBlacklist.Enabled = true;
+                txtIPAddress.BackColor = Color.LightGreen;
+
+                // Now we know subnetInfo is not null
+                int addressCount = SubnetUtils.CalculateAddressesInSubnet(subnetInfo);
+                string range = SubnetUtils.GetSubnetRange(subnetInfo);
+                toolTip1.SetToolTip(txtIPAddress,
+                    $"Valid subnet\nRange: {range}\n" +
+                    (addressCount > 0 ? $"Addresses: {addressCount:N0}" : "Large IPv6 subnet"));
+                return;
+            }
+
+            // Regular IP validation
+            var validation = IPValidator.ValidateIP(input);
             if (!validation.IsValid)
             {
                 btnAddWhitelist.Enabled = false;
@@ -260,10 +286,8 @@ namespace RDPSecure
                 return;
             }
 
-            // Create an IPAddress instance for reserved check
-            if (!IPAddress.TryParse(ip, out IPAddress? parsedIP))
+            if (!System.Net.IPAddress.TryParse(input, out System.Net.IPAddress? parsedIP))
             {
-                // This shouldn't happen since already validated, but handle it just in case
                 btnAddWhitelist.Enabled = false;
                 btnAddBlacklist.Enabled = false;
                 txtIPAddress.BackColor = Color.MistyRose;
@@ -271,7 +295,6 @@ namespace RDPSecure
                 return;
             }
 
-            // Check for reserved IPs
             if (IPValidator.IsReservedIP(parsedIP))
             {
                 btnAddWhitelist.Enabled = false;
@@ -281,120 +304,131 @@ namespace RDPSecure
                 return;
             }
 
-            // Valid IP
             btnAddWhitelist.Enabled = true;
             btnAddBlacklist.Enabled = true;
             txtIPAddress.BackColor = Color.LightGreen;
             toolTip1.SetToolTip(txtIPAddress, $"Valid {validation.Version} address");
         }
-
         private void OnAddWhitelist(object? sender, EventArgs e)
         {
-            string ip = txtIPAddress.Text.Trim();
-            var validation = IPValidator.ValidateIP(ip);
+            string input = txtIPAddress.Text.Trim();
 
-            if (!validation.IsValid)
+            // Check if it's a subnet entry
+            if (input.Contains("/"))
             {
-                MessageBox.Show(
-                    validation.ErrorMessage,
-                    "Invalid IP Address",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-                return;
-            }
+                var (isValid, errorMessage, subnetInfo) = SubnetUtils.ValidateSubnet(input);
+                if (!isValid || subnetInfo == null)
+                {
+                    MessageBox.Show(
+                        errorMessage ?? "Invalid subnet format",
+                        "Invalid Subnet",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return;
+                }
 
-            if (!IPAddress.TryParse(ip, out IPAddress? parsedIP))
-            {
-                MessageBox.Show(
-                    "Failed to parse IP address.",
-                    "Invalid IP Address",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-                return;
-            }
-
-            if (IPValidator.IsReservedIP(parsedIP))
-            {
-                MessageBox.Show(
-                    "Reserved IP addresses cannot be added to the whitelist.",
-                    "Invalid IP Address",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-                return;
-            }
-
-            // Check if IP already exists in whitelist
-            if (currentSettings.WhitelistedIPs.Any(w =>
-                string.Equals(w.IPAddress, ip, StringComparison.OrdinalIgnoreCase)))
-            {
-                MessageBox.Show(
-                    "This IP is already whitelisted.",
-                    "Duplicate IP",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-                return;
-            }
-
-            try
-            {
-                // Add to whitelist
+                // Create the entry
                 var entry = new IPEntry
                 {
-                    IPAddress = IPValidator.NormalizeIP(ip),
                     Type = "Whitelist",
                     AddedDate = DateTime.Now,
                     IsEnabled = true,
-                    Notes = $"Added manually ({validation.Version})"
+                    Notes = $"Subnet added manually"
                 };
 
-                currentSettings.WhitelistedIPs.Add(entry);
+                // Set the subnet information
+                entry.SetSubnetInfo(subnetInfo);
 
-                // Add to grid
-                gridIPList.Rows.Add(
-                    entry.IPAddress,
-                    entry.Type,
-                    entry.AddedDate.ToString("yyyy-MM-dd HH:mm:ss"),
-                    "Enabled"
-                );
-
-                // If IP was banned, remove the ban
-                monitorService.RemoveBan(ip);
-
-                // Save settings immediately after adding
-                SaveSettings();
-
-                // Clear the input and reset validation
-                txtIPAddress.Clear();
-                txtIPAddress.BackColor = SystemColors.Window;
-                btnAddWhitelist.Enabled = false;
-                btnAddBlacklist.Enabled = false;
-
-                logger.LogInformation($"{validation.Version} address {ip} added to whitelist");
-
-                // Show success message
-                MessageBox.Show(
-                    $"{validation.Version} address {ip} has been successfully added to the whitelist.",
-                    "Success",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-
-                // Refresh the main form's whitelist count
-                if (Owner is MainForm mainForm)
+                // Check if subnet already exists
+                if (currentSettings.WhitelistedIPs.Any(w =>
+                    w.IsSubnet && w.NetworkAddress == entry.NetworkAddress && w.PrefixLength == entry.PrefixLength))
                 {
-                    mainForm.BeginInvoke(() => mainForm.UpdateUIFromSettings());
+                    MessageBox.Show(
+                        "This subnet is already whitelisted.",
+                        "Duplicate Subnet",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
                 }
+
+                // Add to whitelist
+                currentSettings.WhitelistedIPs.Add(entry);
             }
-            catch (Exception ex)
+            else
             {
-                logger.LogError($"Error adding IP to whitelist: {ex.Message}", ex);
-                MessageBox.Show(
-                    $"Error adding IP to whitelist: {ex.Message}",
-                    "Error",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
+                // Handle single IP address (existing code)
+                var validation = IPValidator.ValidateIP(input);
+                if (!validation.IsValid)
+                {
+                    MessageBox.Show(
+                        validation.ErrorMessage,
+                        "Invalid IP Address",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // Create entry for single IP
+                var entry = new IPEntry
+                {
+                    IPAddress = input,
+                    Type = "Whitelist",
+                    AddedDate = DateTime.Now,
+                    IsEnabled = true,
+                    Notes = $"Added manually ({validation.Version})",
+                    IsSubnet = false
+                };
+
+                // Check if IP already exists
+                if (currentSettings.WhitelistedIPs.Any(w =>
+                    string.Equals(w.IPAddress, input, StringComparison.OrdinalIgnoreCase)))
+                {
+                    MessageBox.Show(
+                        "This IP is already whitelisted.",
+                        "Duplicate IP",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
+                }
+
+                currentSettings.WhitelistedIPs.Add(entry);
+            }
+
+            // Save settings and update UI
+            SaveSettings();
+            RefreshIPList();
+            txtIPAddress.Clear();
+
+            // Show success message
+            MessageBox.Show(
+                $"{input} has been successfully added to the whitelist.",
+                "Success",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+
+            // Update main form
+            if (Owner is MainForm mainForm)
+            {
+                mainForm.BeginInvoke(() => mainForm.UpdateUIFromSettings());
             }
         }
+        private void RefreshIPList()
+        {
+            gridIPList.Rows.Clear();
+            foreach (var ip in currentSettings.WhitelistedIPs)
+            {
+                string displayAddress = ip.IsSubnet ?
+                    $"{ip.NetworkAddress}/{ip.PrefixLength}" :
+                    ip.IPAddress;
 
+                gridIPList.Rows.Add(
+                    displayAddress,
+                    ip.Type,
+                    ip.AddedDate.ToString("yyyy-MM-dd HH:mm:ss"),
+                    ip.IsEnabled ? "Enabled" : "Disabled"
+                );
+            }
+        }
         private void OnRemoveFromWhitelist(object? sender, EventArgs e)
         {
             if (gridIPList.SelectedRows.Count > 0)

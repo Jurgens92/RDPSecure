@@ -55,6 +55,7 @@ public class SystemSettings
 public class IPEntry
 {
     public string IPAddress { get; set; }
+    public bool IsSubnet { get; set; }
     public string Type { get; set; }
     public DateTime AddedDate { get; set; }
     public DateTime? ExpiryDate { get; set; }
@@ -62,6 +63,7 @@ public class IPEntry
     public string AddedBy { get; set; }
     public string Reason { get; set; }
     public int AttemptCount { get; set; }
+    public SubnetUtils.SubnetInfo? SubnetInfo { get; set; }
 
     public IPEntry()
     {
@@ -72,5 +74,6 @@ public class IPEntry
         AddedBy = "System";
         Reason = string.Empty;
         AttemptCount = 0;
+        IsSubnet = false;
     }
 }

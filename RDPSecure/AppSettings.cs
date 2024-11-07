@@ -1,4 +1,9 @@
-﻿namespace RDPSecure
+﻿using System;
+using System.Collections.Generic;
+using System.Net;
+using System.Linq;
+
+namespace RDPSecure
 {
     public class AppSettings
     {
@@ -27,5 +32,51 @@
         public DateTime AddedDate { get; set; }
         public bool IsEnabled { get; set; } = true;
         public string Notes { get; set; } = string.Empty;
+        public bool IsSubnet { get; set; } = false;
+        public int? PrefixLength { get; set; }
+        public string? NetworkAddress { get; set; }
+        public bool IsIPv6 { get; set; } = false;
+
+        // Helper method to get subnet info if this is a subnet entry
+        public SubnetUtils.SubnetInfo? GetSubnetInfo()
+        {
+            if (!IsSubnet || string.IsNullOrEmpty(NetworkAddress) || !PrefixLength.HasValue)
+                return null;
+
+            System.Net.IPAddress? network;
+            if (!System.Net.IPAddress.TryParse(NetworkAddress, out network))
+                return null;
+
+            return new SubnetUtils.SubnetInfo(network, PrefixLength.Value);
+        }
+
+        // Helper method to check if an IP is within this entry's range
+        public bool MatchesIP(string ipToCheck)
+        {
+            System.Net.IPAddress? checkIP;
+            if (!System.Net.IPAddress.TryParse(ipToCheck, out checkIP))
+                return false;
+
+            if (IsSubnet)
+            {
+                var subnetInfo = GetSubnetInfo();
+                if (subnetInfo == null)
+                    return false;
+
+                return SubnetUtils.IsIPInSubnet(checkIP, subnetInfo);
+            }
+
+            return string.Equals(IPAddress, ipToCheck, StringComparison.OrdinalIgnoreCase);
+        }
+
+        // Helper method to set subnet information
+        public void SetSubnetInfo(SubnetUtils.SubnetInfo subnetInfo)
+        {
+            IsSubnet = true;
+            NetworkAddress = subnetInfo.NetworkAddress.ToString();
+            PrefixLength = subnetInfo.PrefixLength;
+            IsIPv6 = subnetInfo.IsIPv6;
+            IPAddress = $"{NetworkAddress}/{PrefixLength}";
+        }
     }
 }

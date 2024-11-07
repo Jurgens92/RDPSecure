@@ -37,11 +37,18 @@ namespace RDPSecure.Services
 
         private bool IsWhitelisted(string ipAddress)
         {
-            // Reload settings to get the latest whitelist
+            if (!IPAddress.TryParse(ipAddress, out IPAddress? ip))
+                return false;
+
             var currentSettings = SettingsManager.LoadSettings();
-            return currentSettings.WhitelistedIPs.Any(w =>
-                string.Equals(w.IPAddress, ipAddress, StringComparison.OrdinalIgnoreCase) &&
-                w.IsEnabled);
+
+            foreach (var whitelist in currentSettings.WhitelistedIPs.Where(w => w.IsEnabled))
+            {
+                if (whitelist.MatchesIP(ipAddress))
+                    return true;
+            }
+
+            return false;
         }
 
         public void AddManualBan(string ipAddress, TimeSpan duration)
