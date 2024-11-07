@@ -8,7 +8,7 @@ namespace RDPSecure.Data
     public class LoginAttemptsManager : IDisposable
     {
         private static readonly string AttemptsFilePath = Path.Combine(
-            AppDataManager.DatabaseDirectory,
+            AppConfig.AppDataPath,
             "login_attempts.json"
         );
 

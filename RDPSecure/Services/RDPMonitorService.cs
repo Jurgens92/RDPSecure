@@ -13,7 +13,6 @@ namespace RDPSecure.Services
         private const string FIREWALL_RULE_NAME = "RDPSecure-Blocked-IPs";
         private AppSettings _settings;
         private readonly object _settingsLock = new object();
-       // private readonly Dictionary<string, List<DateTime>> _loginAttempts;
         private readonly LoginAttemptsManager _attemptsManager;
         private readonly Dictionary<string, BanInfo> _bannedIPs;
         private bool _isMonitoring;
