@@ -8,7 +8,7 @@ namespace RDPSecure
 {
     public partial class SettingsForm : Form
     {
-        private readonly AppSettings currentSettings;
+        private AppSettings currentSettings;
         private readonly SecurityLogger logger;
         private readonly RDPMonitorService monitorService;
         private System.Windows.Forms.Timer? firewallTimer;
@@ -17,6 +17,9 @@ namespace RDPSecure
         {
             InitializeComponent();
             InitializeSystemTab();
+            InitializeGlobalBanlistTab();
+
+
             this.monitorService = monitorService;
             logger = new SecurityLogger();
             currentSettings = SettingsManager.LoadSettings();
@@ -66,6 +69,284 @@ namespace RDPSecure
             });
 
             gridIPList.ContextMenuStrip = contextMenu;
+        }
+
+        private void InitializeGlobalBanlistTab()
+        {
+            try
+            {
+                // Create the new tab page
+                var tabGlobalBan = new TabPage
+                {
+                    Text = "Global Banlist",
+                    Padding = new Padding(20)
+                };
+
+                // Panel to contain all controls
+                var panel = new Panel
+                {
+                    Dock = DockStyle.Fill,
+                    AutoScroll = true
+                };
+
+                // Enable/Disable checkbox
+                var chkEnableGlobal = new CheckBox
+                {
+                    Text = "Enable Global Banlist",
+                    Location = new Point(0, 0),
+                    AutoSize = true,
+                    Checked = false  // Default to false
+                };
+
+                // Try to get the setting from current settings if it exists
+                try
+                {
+                    chkEnableGlobal.Checked = currentSettings?.GlobalBanlistEnabled ?? false;
+                }
+                catch (Exception) { /* Ignore if setting doesn't exist yet */ }
+
+                // Description label
+                var lblDescription = new Label
+                {
+                    Text = "Share banned IPs with other RDPSecure users globally. All shared bans last for 24 hours.",
+                    Location = new Point(20, 25),
+                    AutoSize = true,
+                    ForeColor = Color.Gray,
+                    MaximumSize = new Size(500, 0)
+                };
+
+                // GitHub settings group
+                var grpGitHub = new GroupBox
+                {
+                    Text = "GitHub Configuration",
+                    Location = new Point(0, 60),
+                    Size = new Size(520, 150),
+                    Enabled = chkEnableGlobal.Checked
+                };
+
+                // Token input
+                var lblToken = new Label
+                {
+                    Text = "GitHub Access Token:",
+                    Location = new Point(20, 30),
+                    AutoSize = true
+                };
+
+                var txtToken = new TextBox
+                {
+                    Location = new Point(20, 50),
+                    Width = 380,
+                    UseSystemPasswordChar = true,
+                    Text = currentSettings?.GitHub?.AccessToken ?? string.Empty
+                };
+
+                var btnShowToken = new Button
+                {
+                    Text = "👁",
+                    Location = new Point(410, 49),
+                    Size = new Size(30, 23)
+                };
+
+                // Token help link
+                var lnkTokenHelp = new LinkLabel
+                {
+                    Text = "How to create a GitHub token?",
+                    Location = new Point(20, 80),
+                    AutoSize = true
+                };
+
+                // Refresh interval
+                var lblRefresh = new Label
+                {
+                    Text = "Refresh Interval (minutes):",
+                    Location = new Point(20, 110),
+                    AutoSize = true
+                };
+
+                var numRefresh = new NumericUpDown
+                {
+                    Location = new Point(160, 108),
+                    Minimum = 5,
+                    Maximum = 120,
+                    Value = currentSettings?.GitHub?.RefreshInterval ?? 30
+                };
+
+                // Stats group
+                var grpStats = new GroupBox
+                {
+                    Text = "Statistics",
+                    Location = new Point(0, 220),
+                    Size = new Size(520, 100),
+                    Enabled = chkEnableGlobal.Checked
+                };
+
+                var lblBanCount = new Label
+                {
+                    Text = "Loading statistics...",
+                    Location = new Point(20, 30),
+                    AutoSize = true
+                };
+
+                // Test connection button
+                var btnTest = new Button
+                {
+                    Text = "Test Connection",
+                    Location = new Point(410, 80),
+                    Size = new Size(100, 23),
+                    Enabled = chkEnableGlobal.Checked
+                };
+
+                // Add controls to groups
+                grpGitHub.Controls.AddRange(new Control[]
+                {
+            lblToken,
+            txtToken,
+            btnShowToken,
+            lnkTokenHelp,
+            lblRefresh,
+            numRefresh,
+            btnTest
+                });
+
+                grpStats.Controls.Add(lblBanCount);
+
+                // Add all controls to panel
+                panel.Controls.AddRange(new Control[]
+                {
+            chkEnableGlobal,
+            lblDescription,
+            grpGitHub,
+            grpStats
+                });
+
+                // Add panel to tab
+                tabGlobalBan.Controls.Add(panel);
+
+                // Add tab to tab control
+                tabControlSettings.Controls.Add(tabGlobalBan);
+
+                // Event handlers
+                chkEnableGlobal.CheckedChanged += (s, e) =>
+                {
+                    if (currentSettings == null) return;
+                    currentSettings.GlobalBanlistEnabled = chkEnableGlobal.Checked;
+                    grpGitHub.Enabled = chkEnableGlobal.Checked;
+                    grpStats.Enabled = chkEnableGlobal.Checked;
+                    btnTest.Enabled = chkEnableGlobal.Checked;
+                };
+
+                btnShowToken.MouseDown += (s, e) => txtToken.UseSystemPasswordChar = false;
+                btnShowToken.MouseUp += (s, e) => txtToken.UseSystemPasswordChar = true;
+
+                lnkTokenHelp.Click += (s, e) =>
+                {
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = "https://github.com/settings/tokens",
+                            UseShellExecute = true
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Error opening URL: {ex.Message}");
+                    }
+                };
+
+                txtToken.TextChanged += (s, e) =>
+                {
+                    if (currentSettings?.GitHub == null)
+                    {
+                        currentSettings = currentSettings ?? new AppSettings();
+                        currentSettings.GitHub = new GitHubSettings();
+                    }
+                    currentSettings.GitHub.AccessToken = txtToken.Text;
+                };
+
+                numRefresh.ValueChanged += (s, e) =>
+                {
+                    if (currentSettings?.GitHub == null)
+                    {
+                        currentSettings = currentSettings ?? new AppSettings();
+                        currentSettings.GitHub = new GitHubSettings();
+                    }
+                    currentSettings.GitHub.RefreshInterval = (int)numRefresh.Value;
+                };
+
+                btnTest.Click += async (s, e) =>
+                {
+                    try
+                    {
+                        btnTest.Enabled = false;
+                        btnTest.Text = "Testing...";
+
+                        var service = new GlobalBanService(logger, txtToken.Text);
+                        var success = await service.TestConnection();
+
+                        MessageBox.Show(
+                            success ? "Connection successful!" : "Connection failed. Please check your token.",
+                            "Test Result",
+                            MessageBoxButtons.OK,
+                            success ? MessageBoxIcon.Information : MessageBoxIcon.Error
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(
+                            $"Error testing connection: {ex.Message}",
+                            "Error",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error
+                        );
+                    }
+                    finally
+                    {
+                        btnTest.Enabled = true;
+                        btnTest.Text = "Test Connection";
+                    }
+                };
+
+                // Load statistics if enabled
+                if (chkEnableGlobal.Checked)
+                {
+                    LoadGlobalBanStats(lblBanCount);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError("Error initializing Global Banlist tab", ex);
+                MessageBox.Show(
+                    $"Error initializing Global Banlist tab: {ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error
+                );
+            }
+        }
+        private async void LoadGlobalBanStats(Label lblStats)
+        {
+            try
+            {
+                lblStats.Text = "Loading statistics...";
+
+                // Create GlobalBanService with correct constructor
+                var globalBanService = new GlobalBanService(logger, currentSettings.GitHub?.AccessToken);
+
+                var currentBans = await globalBanService.GetCurrentBans();
+                var activeBans = currentBans.Count(b => b.ExpiryTime > DateTime.UtcNow);
+                var totalBans = currentBans.Count;
+                var contributors = currentBans.Select(b => b.BannedBy).Distinct().Count();
+
+                lblStats.Text = $"Active Bans: {activeBans}\n" +
+                               $"Total Bans: {totalBans}\n" +
+                               $"Contributing Servers: {contributors}";
+            }
+            catch (Exception ex)
+            {
+                lblStats.Text = "Error loading statistics";
+                logger.LogError("Error loading global ban statistics", ex);
+            }
         }
 
         private void OnRemoveWhitelist(object? sender, EventArgs e)

@@ -12,7 +12,9 @@ namespace RDPSecure
         public int TimeWindow { get; set; } = 5;
         public int PrivateIPBanHours { get; set; } = 1;
         public int PublicIPBanDays { get; set; } = 30;
-        public bool BurstProtectionEnabled { get; set; } = true;
+        public bool GlobalBanlistEnabled { get; set; } = false;
+
+        public GitHubSettings GitHub { get; set; }
 
         // IP Lists
         public List<IPEntry> WhitelistedIPs { get; set; }
@@ -22,8 +24,17 @@ namespace RDPSecure
         {
             WhitelistedIPs = new List<IPEntry>();
             BlacklistedIPs = new List<IPEntry>();
+            GitHub = new GitHubSettings();
         }
     }
+
+    public class GitHubSettings
+    {
+        public string AccessToken { get; set; } = string.Empty;
+        public int RefreshInterval { get; set; } = 30; // minutes
+        public bool EnableRateLimitProtection { get; set; } = true;
+    }
+
 
     public class IPEntry
     {
