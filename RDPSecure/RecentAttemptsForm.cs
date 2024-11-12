@@ -38,9 +38,7 @@ namespace RDPSecure
         }
 
         private void InitializeComponent()
-        {
-                    
-
+        {  
 
             DataGridViewCellStyle dataGridViewCellStyle1 = new DataGridViewCellStyle();
             DataGridViewCellStyle dataGridViewCellStyle2 = new DataGridViewCellStyle();
@@ -101,6 +99,7 @@ namespace RDPSecure
             _gridAttempts.ShowEditingIcon = false;
             _gridAttempts.AllowUserToAddRows = false;
             _gridAttempts.AllowUserToDeleteRows = false;
+            _gridAttempts.AllowUserToResizeColumns = false;
             _gridAttempts.AutoResizeColumns(); 
             _gridAttempts.Columns.Clear();
 
