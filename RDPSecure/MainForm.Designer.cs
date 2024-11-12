@@ -30,24 +30,21 @@ partial class MainForm
     /// </summary>
     private void InitializeComponent()
     {
-       
         components = new System.ComponentModel.Container();
-        DataGridViewCellStyle dataGridViewCellStyle1 = new DataGridViewCellStyle();
-        DataGridViewCellStyle dataGridViewCellStyle2 = new DataGridViewCellStyle();
-        DataGridViewCellStyle dataGridViewCellStyle3 = new DataGridViewCellStyle();
+        DataGridViewCellStyle dataGridViewCellStyle4 = new DataGridViewCellStyle();
+        DataGridViewCellStyle dataGridViewCellStyle5 = new DataGridViewCellStyle();
+        DataGridViewCellStyle dataGridViewCellStyle6 = new DataGridViewCellStyle();
         System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
         panelStats = new Panel();
+        lblLicenseStatus = new Label();
         btnExit = new Button();
         btnSettings = new Button();
         panelWhitelisted = new Panel();
         lblWhitelistedCount = new Label();
         lblWhitelistedTitle = new Label();
         panelRecentAttempts = new Panel();
-        panelRecentAttempts.Cursor = Cursors.Hand;      
         lblRecentAttemptsCount = new Label();
-        lblRecentAttemptsCount.Cursor = Cursors.Hand;
         lblRecentAttemptsTitle = new Label();
-        lblRecentAttemptsTitle.Cursor = Cursors.Hand;
         panelActiveBans = new Panel();
         lblActiveBansCount = new Label();
         lblActiveBansTitle = new Label();
@@ -77,6 +74,7 @@ partial class MainForm
         // 
         // panelStats
         // 
+        panelStats.Controls.Add(lblLicenseStatus);
         panelStats.Controls.Add(btnExit);
         panelStats.Controls.Add(btnSettings);
         panelStats.Controls.Add(panelWhitelisted);
@@ -88,6 +86,15 @@ partial class MainForm
         panelStats.Padding = new Padding(20);
         panelStats.Size = new Size(784, 124);
         panelStats.TabIndex = 0;
+        // 
+        // lblLicenseStatus
+        // 
+        lblLicenseStatus.AutoSize = true;
+        lblLicenseStatus.Location = new Point(576, 95);
+        lblLicenseStatus.Name = "lblLicenseStatus";
+        lblLicenseStatus.Size = new Size(38, 15);
+        lblLicenseStatus.TabIndex = 5;
+        lblLicenseStatus.Text = "label1";
         // 
         // btnExit
         // 
@@ -155,6 +162,7 @@ partial class MainForm
         panelRecentAttempts.BorderStyle = BorderStyle.FixedSingle;
         panelRecentAttempts.Controls.Add(lblRecentAttemptsCount);
         panelRecentAttempts.Controls.Add(lblRecentAttemptsTitle);
+        panelRecentAttempts.Cursor = Cursors.Hand;
         panelRecentAttempts.Location = new Point(206, 10);
         panelRecentAttempts.Name = "panelRecentAttempts";
         panelRecentAttempts.Size = new Size(180, 100);
@@ -163,6 +171,7 @@ partial class MainForm
         // lblRecentAttemptsCount
         // 
         lblRecentAttemptsCount.AutoSize = true;
+        lblRecentAttemptsCount.Cursor = Cursors.Hand;
         lblRecentAttemptsCount.Font = new Font("Segoe UI", 20.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
         lblRecentAttemptsCount.ForeColor = SystemColors.Highlight;
         lblRecentAttemptsCount.Location = new Point(15, 45);
@@ -174,6 +183,7 @@ partial class MainForm
         // lblRecentAttemptsTitle
         // 
         lblRecentAttemptsTitle.AutoSize = true;
+        lblRecentAttemptsTitle.Cursor = Cursors.Hand;
         lblRecentAttemptsTitle.Font = new Font("Segoe UI", 9.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
         lblRecentAttemptsTitle.Location = new Point(15, 15);
         lblRecentAttemptsTitle.Name = "lblRecentAttemptsTitle";
@@ -229,30 +239,30 @@ partial class MainForm
         gridBannedIPs.AllowUserToDeleteRows = false;
         gridBannedIPs.AllowUserToResizeColumns = false;
         gridBannedIPs.AllowUserToResizeRows = false;
-        dataGridViewCellStyle1.BackColor = Color.FromArgb(249, 249, 249);
-        gridBannedIPs.AlternatingRowsDefaultCellStyle = dataGridViewCellStyle1;
+        dataGridViewCellStyle4.BackColor = Color.FromArgb(249, 249, 249);
+        gridBannedIPs.AlternatingRowsDefaultCellStyle = dataGridViewCellStyle4;
         gridBannedIPs.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
         gridBannedIPs.BackgroundColor = Color.FromArgb(224, 224, 224);
         gridBannedIPs.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
-        dataGridViewCellStyle2.Alignment = DataGridViewContentAlignment.MiddleLeft;
-        dataGridViewCellStyle2.BackColor = Color.WhiteSmoke;
-        dataGridViewCellStyle2.Font = new Font("Segoe UI", 9F);
-        dataGridViewCellStyle2.ForeColor = Color.FromArgb(64, 64, 64);
-        dataGridViewCellStyle2.SelectionBackColor = SystemColors.Highlight;
-        dataGridViewCellStyle2.SelectionForeColor = SystemColors.HighlightText;
-        dataGridViewCellStyle2.WrapMode = DataGridViewTriState.True;
-        gridBannedIPs.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle2;
+        dataGridViewCellStyle5.Alignment = DataGridViewContentAlignment.MiddleLeft;
+        dataGridViewCellStyle5.BackColor = Color.WhiteSmoke;
+        dataGridViewCellStyle5.Font = new Font("Segoe UI", 9F);
+        dataGridViewCellStyle5.ForeColor = Color.FromArgb(64, 64, 64);
+        dataGridViewCellStyle5.SelectionBackColor = SystemColors.Highlight;
+        dataGridViewCellStyle5.SelectionForeColor = SystemColors.HighlightText;
+        dataGridViewCellStyle5.WrapMode = DataGridViewTriState.True;
+        gridBannedIPs.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle5;
         gridBannedIPs.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
         gridBannedIPs.Columns.AddRange(new DataGridViewColumn[] { Column1, Column2, Column3, Column4, Column5 });
         gridBannedIPs.Cursor = Cursors.Hand;
-        dataGridViewCellStyle3.Alignment = DataGridViewContentAlignment.MiddleLeft;
-        dataGridViewCellStyle3.BackColor = Color.White;
-        dataGridViewCellStyle3.Font = new Font("Segoe UI", 9F);
-        dataGridViewCellStyle3.ForeColor = Color.FromArgb(64, 64, 64);
-        dataGridViewCellStyle3.SelectionBackColor = Color.FromArgb(52, 152, 219);
-        dataGridViewCellStyle3.SelectionForeColor = Color.White;
-        dataGridViewCellStyle3.WrapMode = DataGridViewTriState.False;
-        gridBannedIPs.DefaultCellStyle = dataGridViewCellStyle3;
+        dataGridViewCellStyle6.Alignment = DataGridViewContentAlignment.MiddleLeft;
+        dataGridViewCellStyle6.BackColor = Color.White;
+        dataGridViewCellStyle6.Font = new Font("Segoe UI", 9F);
+        dataGridViewCellStyle6.ForeColor = Color.FromArgb(64, 64, 64);
+        dataGridViewCellStyle6.SelectionBackColor = Color.FromArgb(52, 152, 219);
+        dataGridViewCellStyle6.SelectionForeColor = Color.White;
+        dataGridViewCellStyle6.WrapMode = DataGridViewTriState.False;
+        gridBannedIPs.DefaultCellStyle = dataGridViewCellStyle6;
         gridBannedIPs.Dock = DockStyle.Fill;
         gridBannedIPs.EnableHeadersVisualStyles = false;
         gridBannedIPs.Location = new Point(20, 20);
@@ -349,8 +359,9 @@ partial class MainForm
         MinimizeBox = false;
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
-        Text = "RDP Secure " + Program.VERSION;
+        Text = "RDP Secure 1.0.0";
         panelStats.ResumeLayout(false);
+        panelStats.PerformLayout();
         panelWhitelisted.ResumeLayout(false);
         panelWhitelisted.PerformLayout();
         panelRecentAttempts.ResumeLayout(false);
@@ -392,4 +403,5 @@ partial class MainForm
     private ToolStripMenuItem toolStripMenuItem3;
     private ToolStripMenuItem exitToolStripMenuItem;
     private Button btnExit;
+    private Label lblLicenseStatus;
 }

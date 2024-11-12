@@ -95,18 +95,27 @@ public static class Program
 
     private static bool CheckLicense(ISecurityLogger logger)
     {
+        var licenseManager = new LicenseManager(logger);
+        var (isValid, expiryDate) = licenseManager.ValidateLicense();
+
         if (!Environment.UserInteractive)
         {
             // When running as a service, just validate the license
-            var licenseManager = new LicenseManager(logger);
-            var (isValid, _) = licenseManager.ValidateLicense();
+     
             return isValid;
+        }
+        if (!isValid)
+        {
+            using (var licenseForm = new LicenseForm(logger))
+            {
+                return licenseForm.ShowDialog() == DialogResult.OK;
+            }
         }
 
         // Show license form for interactive mode
         using (var licenseForm = new LicenseForm(logger))
         {
-            return licenseForm.ShowDialog() == DialogResult.OK;
+            return true;
         }
     }
 
