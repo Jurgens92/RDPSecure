@@ -67,9 +67,11 @@ namespace RDPSecure
             string tempPath = Path.Combine(Path.GetTempPath(), "RDPSecureUpdate");
             string updateZip = Path.Combine(tempPath, "update.zip");
             string extractPath = Path.Combine(tempPath, "extracted");
+            string installPath = Path.GetDirectoryName(Application.ExecutablePath)!;
 
             try
             {
+                _logger.LogInformation($"Starting update installation to: {installPath}");
                 // Create temp directory
                 Directory.CreateDirectory(tempPath);
                 Directory.CreateDirectory(extractPath);
@@ -104,17 +106,44 @@ namespace RDPSecure
                 // Copy new files
                 foreach (var file in Directory.GetFiles(extractPath, "*.*", SearchOption.AllDirectories))
                 {
-                    var relativePath = Path.GetRelativePath(extractPath, file);
-                    var targetPath = Path.Combine(Application.StartupPath, relativePath);
+                    try
+                    {
+                        var relativePath = Path.GetRelativePath(extractPath, file);
+                        var targetPath = Path.Combine(installPath, relativePath);
 
-                    Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
-                    File.Copy(file, targetPath, true);
+                        Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+
+                        // Handle file in use
+                        if (File.Exists(targetPath))
+                        {
+                            var tempFilePath = targetPath + ".temp";  // Changed from tempPath to tempFilePath
+                            File.Copy(file, tempFilePath, true);
+                            File.Replace(tempFilePath, targetPath, targetPath + ".backup");
+                        }
+                        else
+                        {
+                            File.Copy(file, targetPath, true);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"Error copying file {file}: {ex.Message}");
+                        throw;
+                    }
                 }
 
                 _logger.LogInformation($"Update to version {updateInfo.Version} installed successfully");
 
                 // Cleanup
-                Directory.Delete(tempPath, true);
+                try
+                {
+                    Directory.Delete(tempPath, true);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Error cleaning up temp files: {ex.Message}");
+                    // Continue anyway as this is not critical
+                }
 
                 // Restart application
                 RestartApplication();
@@ -213,10 +242,13 @@ namespace RDPSecure
         {
             try
             {
+                string appPath = Application.ExecutablePath;
+                _logger.LogInformation($"Restarting application from: {appPath}");
+
                 // Start a new process to restart the application
                 var startInfo = new ProcessStartInfo
                 {
-                    FileName = Application.ExecutablePath,
+                    FileName = appPath,
                     UseShellExecute = true,
                     Verb = "runas" // Request admin privileges
                 };
