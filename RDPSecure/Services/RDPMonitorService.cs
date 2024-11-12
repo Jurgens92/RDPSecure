@@ -6,6 +6,12 @@ using RDPSecure.Data;
 
 namespace RDPSecure.Services
 {
+
+    public class LoginAttempt
+        {
+            public string IPAddress { get; set; } = string.Empty;
+            public DateTime Timestamp { get; set; }
+        }
     public class RDPMonitorService : IRDPMonitorService, IDisposable
     {
         private readonly System.Timers.Timer _cleanupTimer;
@@ -21,36 +27,73 @@ namespace RDPSecure.Services
         public event EventHandler<IPLocationEventArgs>? IPLocationUpdated;
         public event EventHandler<LoginAttemptEventArgs>? LoginAttemptDetected;
         public event EventHandler<IPBanEventArgs>? IPBanned;
-       
-        private void RefreshSettings()
+
+
+
+
+        public bool IsWhitelisted(string ipAddress)
         {
             try
             {
-                var newSettings = SettingsManager.LoadSettings();
-                _settings = newSettings;
-                _logger.LogInformation($"Settings refreshed. MaxAttempts: {_settings.MaxAttempts}, TimeWindow: {_settings.TimeWindow}");
+                // Reload settings to ensure we have the latest
+                _settings = SettingsManager.LoadSettings();
+
+                foreach (var whitelist in _settings.WhitelistedIPs.Where(w => w.IsEnabled))
+                {
+                    if (whitelist.MatchesIP(ipAddress))
+                    {
+                        _logger.LogInformation($"IP {ipAddress} matches whitelist entry: {whitelist.IPAddress}");
+                        return true;
+                    }
+                }
+
+                _logger.LogInformation($"IP {ipAddress} is not whitelisted");
+                return false;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error refreshing settings: {ex.Message}");
-            }
-        }
-
-        private bool IsWhitelisted(string ipAddress)
-        {
-            if (!IPAddress.TryParse(ipAddress, out IPAddress? ip))
+                _logger.LogError($"Error checking whitelist for IP {ipAddress}: {ex.Message}");
                 return false;
+            }
+        }
 
-            var currentSettings = SettingsManager.LoadSettings();
+        public List<LoginAttempt> GetRecentAttempts()
+        {
+            var attempts = new List<LoginAttempt>();
+            var allAttempts = _attemptsManager.GetAllAttempts();
 
-            foreach (var whitelist in currentSettings.WhitelistedIPs.Where(w => w.IsEnabled))
+            foreach (var kvp in allAttempts)
             {
-                if (whitelist.MatchesIP(ipAddress))
-                    return true;
+                foreach (var timestamp in kvp.Value)
+                {
+                    attempts.Add(new LoginAttempt
+                    {
+                        IPAddress = kvp.Key,
+                        Timestamp = timestamp
+                    });
+                }
             }
 
-            return false;
+            return attempts.OrderByDescending(a => a.Timestamp).ToList();
         }
+
+
+        public void RefreshSettings()
+        {
+            lock (_settingsLock)
+            {
+                _settings = SettingsManager.LoadSettings();
+                _logger.LogInformation("Settings refreshed");
+
+                // Log current whitelist entries
+                foreach (var entry in _settings.WhitelistedIPs)
+                {
+                    _logger.LogInformation($"Whitelist entry: {entry.IPAddress}, Enabled: {entry.IsEnabled}, IsSubnet: {entry.IsSubnet}");
+                }
+            }
+        }
+
+
 
         public void AddManualBan(string ipAddress, TimeSpan duration)
         {
@@ -366,7 +409,16 @@ namespace RDPSecure.Services
             {
                 _logger.LogInformation($"Processing login attempt from IP: {ipAddress}");
 
-                // Check whitelist first
+                // Record the attempt
+                _attemptsManager.AddAttempt(ipAddress, DateTime.Now);
+
+                // Always raise the LoginAttemptDetected event, even for whitelisted IPs
+                LoginAttemptDetected?.Invoke(this, new LoginAttemptEventArgs
+                {
+                    IPAddress = ipAddress,
+                    Timestamp = DateTime.Now
+                });
+                // Check whitelist after raising the event
                 if (IsWhitelisted(ipAddress))
                 {
                     _logger.LogInformation($"Login attempt from whitelisted IP: {ipAddress} - allowing");
@@ -379,6 +431,11 @@ namespace RDPSecure.Services
                     if (DateTime.Now < banInfo.ExpiryTime)
                     {
                         _logger.LogInformation($"Blocked attempt from banned IP: {ipAddress}");
+                        LoginAttemptDetected?.Invoke(this, new LoginAttemptEventArgs
+                        {
+                            IPAddress = ipAddress,
+                            Timestamp = DateTime.Now
+                        });
                         return;
                     }
 

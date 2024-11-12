@@ -6,6 +6,33 @@ namespace RDPSecure;
 
 public partial class MainForm : Form
 {
+
+    private void InitializeAttemptTracking()
+    {
+        // Update every 10 seconds as a backup
+        _attemptsUpdateTimer.Interval = 10000;
+
+        _attemptsUpdateTimer.Tick += (s, e) =>
+        {
+            try
+            {
+                UpdateAttemptsDisplay();
+            }
+            catch (Exception ex)
+            {
+                logger.LogError("Error updating attempts count", ex);
+            }
+        };
+        _attemptsUpdateTimer.Start();
+
+        // Subscribe to real-time login attempt events
+        monitorService.LoginAttemptDetected += OnLoginAttemptDetected;
+
+        // Initial update
+        UpdateAttemptsDisplay();
+    }
+
+
     private void UpdateBannedIPsDisplay()
     {
         gridBannedIPs.Rows.Clear();
@@ -32,6 +59,8 @@ public partial class MainForm : Form
     private readonly SecurityLogger logger;
     private readonly System.Windows.Forms.Timer _attemptsUpdateTimer;
 
+  
+
 
     public MainForm()
     {
@@ -51,6 +80,7 @@ public partial class MainForm : Form
             logger = new SecurityLogger();
             settings = SettingsManager.LoadSettings();
             monitorService = new RDPMonitorService(settings);
+            monitorService.RefreshSettings();
 
             lblRecentAttemptsCount.Text = monitorService.GetRecentAttemptsCount().ToString();
 
@@ -292,8 +322,8 @@ public partial class MainForm : Form
         {
             try
             {
-                lblRecentAttemptsCount.Text =
-                    (int.Parse(lblRecentAttemptsCount.Text) + 1).ToString();
+                // Immediately update the attempts count
+                UpdateAttemptsDisplay();
             }
             catch (Exception ex)
             {
@@ -362,6 +392,11 @@ public partial class MainForm : Form
 
     private void SetupEventHandlers()
     {
+
+        panelRecentAttempts.Click += ShowRecentAttempts;
+        lblRecentAttemptsCount.Click += ShowRecentAttempts;
+        lblRecentAttemptsTitle.Click += ShowRecentAttempts;
+
         //button clicks
         btnSettings.Click += OnOpenSettings;
         btnExit.Click += OnExit;
@@ -441,6 +476,25 @@ public partial class MainForm : Form
         }
     }
 
+    private void ShowRecentAttempts(object? sender, EventArgs e)
+    {
+        try
+        {
+            using var form = new RecentAttemptsForm(monitorService);
+            form.ShowDialog(this);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError("Error showing recent attempts", ex);
+            MessageBox.Show(
+                "Error displaying recent attempts: " + ex.Message,
+                "Error",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error
+            );
+        }
+    }
+
     private void OnOpenDashboard(object? sender, EventArgs e)
     {
         Show();
@@ -510,7 +564,20 @@ public partial class MainForm : Form
     {
         try
         {
-            lblRecentAttemptsCount.Text = monitorService.GetRecentAttemptsCount().ToString();
+            int attempts = monitorService.GetRecentAttemptsCount();
+            if (int.TryParse(lblRecentAttemptsCount.Text, out int currentCount))
+            {
+                // Only update if the count has changed
+                if (attempts != currentCount)
+                {
+                    lblRecentAttemptsCount.Text = attempts.ToString();
+                    logger.LogInformation($"Updated attempts count to {attempts}");
+                }
+            }
+            else
+            {
+                lblRecentAttemptsCount.Text = attempts.ToString();
+            }
         }
         catch (Exception ex)
         {

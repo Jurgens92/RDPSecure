@@ -2,6 +2,8 @@
 
 partial class MainForm
 {
+
+
     /// <summary>
     ///  Required designer variable.
     /// </summary>
@@ -28,6 +30,7 @@ partial class MainForm
     /// </summary>
     private void InitializeComponent()
     {
+       
         components = new System.ComponentModel.Container();
         DataGridViewCellStyle dataGridViewCellStyle1 = new DataGridViewCellStyle();
         DataGridViewCellStyle dataGridViewCellStyle2 = new DataGridViewCellStyle();
@@ -40,8 +43,11 @@ partial class MainForm
         lblWhitelistedCount = new Label();
         lblWhitelistedTitle = new Label();
         panelRecentAttempts = new Panel();
+        panelRecentAttempts.Cursor = Cursors.Hand;      
         lblRecentAttemptsCount = new Label();
+        lblRecentAttemptsCount.Cursor = Cursors.Hand;
         lblRecentAttemptsTitle = new Label();
+        lblRecentAttemptsTitle.Cursor = Cursors.Hand;
         panelActiveBans = new Panel();
         lblActiveBansCount = new Label();
         lblActiveBansTitle = new Label();

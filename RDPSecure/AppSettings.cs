@@ -64,20 +64,27 @@ namespace RDPSecure
         // Helper method to check if an IP is within this entry's range
         public bool MatchesIP(string ipToCheck)
         {
-            System.Net.IPAddress? checkIP;
-            if (!System.Net.IPAddress.TryParse(ipToCheck, out checkIP))
-                return false;
-
-            if (IsSubnet)
+            try
             {
-                var subnetInfo = GetSubnetInfo();
-                if (subnetInfo == null)
+                System.Net.IPAddress? checkIP;
+                if (!System.Net.IPAddress.TryParse(ipToCheck, out checkIP))
                     return false;
 
-                return SubnetUtils.IsIPInSubnet(checkIP, subnetInfo);
-            }
+                if (IsSubnet)
+                {
+                    var subnetInfo = GetSubnetInfo();
+                    if (subnetInfo == null)
+                        return false;
 
-            return string.Equals(IPAddress, ipToCheck, StringComparison.OrdinalIgnoreCase);
+                    return SubnetUtils.IsIPInSubnet(checkIP, subnetInfo);
+                }
+
+                return string.Equals(IPAddress, ipToCheck, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         // Helper method to set subnet information

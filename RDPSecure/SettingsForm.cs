@@ -17,7 +17,7 @@ namespace RDPSecure
         {
             InitializeComponent();
             InitializeSystemTab();
-            InitializeGlobalBanlistTab();
+            //InitializeGlobalBanlistTab();
 
 
             this.monitorService = monitorService;

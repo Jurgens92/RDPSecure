@@ -7,42 +7,53 @@ namespace RDPSecure.Data
 {
     public class LoginAttemptsManager : IDisposable
     {
-        private static readonly string AttemptsFilePath = Path.Combine(
-            AppConfig.AppDataPath,
-            "login_attempts.json"
-        );
-
         private readonly ConcurrentDictionary<string, List<DateTime>> _attempts;
+        private readonly string _attemptsFilePath;
         private readonly object _fileLock = new object();
-        private readonly System.Threading.Timer _saveTimer;
         private readonly ISecurityLogger _logger;
         private readonly int _timeWindowMinutes;
-        private bool _disposed;
+        private readonly System.Threading.Timer _saveTimer;
         private readonly System.Threading.Timer _cleanupTimer;
+        private bool _disposed;
 
         public LoginAttemptsManager(ISecurityLogger logger, int timeWindowMinutes)
         {
             _logger = logger;
             _timeWindowMinutes = timeWindowMinutes;
             _attempts = new ConcurrentDictionary<string, List<DateTime>>(StringComparer.OrdinalIgnoreCase);
+            _attemptsFilePath = Path.Combine(AppConfig.AppDataPath, "login_attempts.json");
 
-            // Load existing attempts
+            // Load existing attempts - modified to keep a longer history
             LoadAttempts();
 
-            // Setup timer to periodically save attempts (every 1 minute)
+            // Save attempts every 30 seconds instead of 1 minute
             _saveTimer = new System.Threading.Timer(
                 _ => SaveAttempts(),
                 null,
-                TimeSpan.FromMinutes(1),
-                TimeSpan.FromMinutes(1)
+                TimeSpan.FromSeconds(30),
+                TimeSpan.FromSeconds(30)
             );
 
-            // Setup timer to periodically clean old attempts (every 5 minutes)
+            // Clean old attempts every 15 minutes instead of 5
             _cleanupTimer = new System.Threading.Timer(
                 _ => CleanAllOldAttempts(),
                 null,
-                TimeSpan.FromMinutes(5),
-                TimeSpan.FromMinutes(5)
+                TimeSpan.FromMinutes(15),
+                TimeSpan.FromMinutes(15)
+            );
+        }
+
+        public Dictionary<string, List<DateTime>> GetAllAttempts()
+        {
+            return _attempts.ToDictionary(
+                kvp => kvp.Key,
+                kvp =>
+                {
+                    lock (kvp.Value)
+                    {
+                        return kvp.Value.ToList();
+                    }
+                }
             );
         }
 
@@ -67,13 +78,17 @@ namespace RDPSecure.Data
         public int GetTotalAttempts(TimeSpan window)
         {
             var cutoffTime = DateTime.Now.Subtract(window);
-            return _attempts.Sum(kvp =>
+            int total = 0;
+
+            foreach (var kvp in _attempts)
             {
                 lock (kvp.Value)
                 {
-                    return kvp.Value.Count(t => t > cutoffTime);
+                    total += kvp.Value.Count(t => t > cutoffTime);
                 }
-            });
+            }
+
+            return total;
         }
 
         public int GetRecentAttemptCount(string ipAddress)
@@ -93,20 +108,19 @@ namespace RDPSecure.Data
         {
             try
             {
-                if (File.Exists(AttemptsFilePath))
+                if (File.Exists(_attemptsFilePath))
                 {
                     lock (_fileLock)
                     {
-                        string json = File.ReadAllText(AttemptsFilePath);
+                        string json = File.ReadAllText(_attemptsFilePath);
                         var loadedAttempts = JsonConvert.DeserializeObject<Dictionary<string, List<DateTime>>>(json);
 
                         if (loadedAttempts != null)
                         {
-                            // Clear existing attempts first
                             _attempts.Clear();
 
-                            // Only load attempts within the time window
-                            var cutoffTime = DateTime.Now.AddHours(-24);
+                            // Keep attempts from the last 48 hours instead of 24
+                            var cutoffTime = DateTime.Now.AddHours(-48);
                             foreach (var kvp in loadedAttempts)
                             {
                                 var validAttempts = kvp.Value.Where(t => t > cutoffTime).ToList();
@@ -133,7 +147,7 @@ namespace RDPSecure.Data
             {
                 lock (_fileLock)
                 {
-                    Directory.CreateDirectory(Path.GetDirectoryName(AttemptsFilePath)!);
+                    Directory.CreateDirectory(Path.GetDirectoryName(_attemptsFilePath)!);
 
                     var attemptsSnapshot = _attempts.ToDictionary(
                         kvp => kvp.Key,
@@ -147,7 +161,7 @@ namespace RDPSecure.Data
                     );
 
                     string json = JsonConvert.SerializeObject(attemptsSnapshot, Formatting.Indented);
-                    File.WriteAllText(AttemptsFilePath, json);
+                    File.WriteAllText(_attemptsFilePath, json);
                 }
             }
             catch (Exception ex)
@@ -158,38 +172,50 @@ namespace RDPSecure.Data
 
         private void CleanAllOldAttempts()
         {
-            var cutoffTime = DateTime.Now.AddMinutes(-_timeWindowMinutes);
-            bool hasChanges = false;
-
-            foreach (var ip in _attempts.Keys)
+            try
             {
-                if (_attempts.TryGetValue(ip, out var attempts))
+                // Keep attempts from last 48 hours for history
+                var cutoffTime = DateTime.Now.AddHours(-48);
+                bool hasChanges = false;
+
+                foreach (var ip in _attempts.Keys)
                 {
-                    lock (attempts)
+                    if (_attempts.TryGetValue(ip, out var attempts))
                     {
-                        int initialCount = attempts.Count;
-                        attempts.RemoveAll(t => t <= cutoffTime);
-                        if (attempts.Count != initialCount)
+                        lock (attempts)
                         {
-                            hasChanges = true;
+                            int initialCount = attempts.Count;
+                            attempts.RemoveAll(t => t <= cutoffTime);
+                            if (attempts.Count != initialCount)
+                            {
+                                hasChanges = true;
+                            }
                         }
                     }
                 }
-            }
 
-            // Remove empty entries
-            var emptyKeys = _attempts.Where(kvp => !kvp.Value.Any()).Select(kvp => kvp.Key).ToList();
-            foreach (var key in emptyKeys)
-            {
-                _attempts.TryRemove(key, out _);
-                hasChanges = true;
-            }
+                // Remove empty entries
+                var emptyKeys = _attempts.Where(kvp => !kvp.Value.Any())
+                                       .Select(kvp => kvp.Key)
+                                       .ToList();
+                foreach (var key in emptyKeys)
+                {
+                    _attempts.TryRemove(key, out _);
+                    hasChanges = true;
+                }
 
-            // Save if there were any changes
-            if (hasChanges)
-            {
-                SaveAttempts();
+                if (hasChanges)
+                {
+                    SaveAttempts();
+                }
             }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error cleaning old attempts: {ex.Message}");
+            }
+        
+    
+
         }
 
         public void RemoveAttempts(string ipAddress)
