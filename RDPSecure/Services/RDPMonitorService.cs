@@ -419,13 +419,25 @@ namespace RDPSecure.Services
                 // Record the attempt
                 _attemptsManager.AddAttempt(ipAddress, DateTime.Now);
 
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _attemptsManager.SaveAttemptsAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"Error saving attempts in background: {ex.Message}");
+                    }
+                });
+
                 // Always raise the LoginAttemptDetected event, even for whitelisted IPs
                 LoginAttemptDetected?.Invoke(this, new LoginAttemptEventArgs
                 {
                     IPAddress = ipAddress,
                     Timestamp = DateTime.Now
                 });
-                SaveAttemptsToFile();
+               
 
                 // Check whitelist after raising the event
                 if (IsWhitelisted(ipAddress))
@@ -486,11 +498,11 @@ namespace RDPSecure.Services
                 _logger.LogError($"Error processing login attempt for IP {ipAddress}: {ex.Message}");
             }
         }
-        private void SaveAttemptsToFile()
+        private async Task SaveAttemptsToFileAsync()
         {
             try
             {
-                _attemptsManager.SaveAttempts(); 
+                await _attemptsManager.SaveAttemptsAsync();
             }
             catch (Exception ex)
             {

@@ -1,43 +1,43 @@
-﻿using Newtonsoft.Json;
+﻿using System.Collections.Concurrent;
+using Newtonsoft.Json;
 using RDPSecure.Logging;
-using System;
-using System.Collections.Concurrent;
 
 namespace RDPSecure.Data
 {
     public class LoginAttemptsManager : IDisposable
     {
-        private static readonly string AttemptsFilePath = AppConfig.AttemptsPath;        
-        private readonly ConcurrentDictionary<string, List<DateTime>> _attempts;
         private readonly string _attemptsFilePath;
-        private readonly object _fileLock = new object();
+        private readonly ConcurrentDictionary<string, ConcurrentQueue<DateTime>> _attempts;
         private readonly ISecurityLogger _logger;
         private readonly int _timeWindowMinutes;
+        private readonly object _fileLock = new object();
         private readonly System.Threading.Timer _saveTimer;
         private readonly System.Threading.Timer _cleanupTimer;
-        private bool _disposed;
+        private volatile bool _disposed;
+        private readonly SemaphoreSlim _saveThrottle;
+        private readonly TimeSpan _saveThrottleInterval = TimeSpan.FromSeconds(5);
+        private DateTime _lastSaveTime = DateTime.MinValue;
 
         public LoginAttemptsManager(ISecurityLogger logger, int timeWindowMinutes)
         {
             _logger = logger;
             _timeWindowMinutes = timeWindowMinutes;
-            _attempts = new ConcurrentDictionary<string, List<DateTime>>(StringComparer.OrdinalIgnoreCase);
+            _attempts = new ConcurrentDictionary<string, ConcurrentQueue<DateTime>>(StringComparer.OrdinalIgnoreCase);
             _attemptsFilePath = Path.Combine(AppConfig.AppDataPath, "login_attempts.json");
-
+            _saveThrottle = new SemaphoreSlim(1, 1);
 
             AppConfig.EnsureDirectoriesExist();
-            // Load existing attempts - modified to keep a longer history
             LoadAttempts();
 
-            // Save attempts every 30 seconds instead of 1 minute
+            // Save attempts every 30 seconds
             _saveTimer = new System.Threading.Timer(
-                _ => SaveAttempts(),
+                _ => SaveAttemptsAsync().Wait(),
                 null,
                 TimeSpan.FromSeconds(30),
                 TimeSpan.FromSeconds(30)
             );
 
-            // Clean old attempts every 15 minutes instead of 5
+            // Clean old attempts every 15 minutes
             _cleanupTimer = new System.Threading.Timer(
                 _ => CleanAllOldAttempts(),
                 null,
@@ -50,59 +50,53 @@ namespace RDPSecure.Data
         {
             return _attempts.ToDictionary(
                 kvp => kvp.Key,
-                kvp =>
-                {
-                    lock (kvp.Value)
-                    {
-                        return kvp.Value.ToList();
-                    }
-                }
+                kvp => kvp.Value.ToList()
             );
         }
 
         public void AddAttempt(string ipAddress, DateTime timestamp)
         {
-            _attempts.AddOrUpdate(
-                ipAddress,
-                new List<DateTime> { timestamp },
-                (key, existingList) =>
-                {
-                    lock (existingList)
-                    {
-                        existingList.Add(timestamp);
-                        return existingList;
-                    }
-                });
+            var queue = _attempts.GetOrAdd(ipAddress, _ => new ConcurrentQueue<DateTime>());
+            queue.Enqueue(timestamp);
 
-            // Save immediately after adding
-            SaveAttempts();
+            // Throttled save
+            ThrottledSaveAsync().ConfigureAwait(false);
+        }
+
+        private async Task ThrottledSaveAsync()
+        {
+            if (await _saveThrottle.WaitAsync(0))
+            {
+                try
+                {
+                    var timeSinceLastSave = DateTime.UtcNow - _lastSaveTime;
+                    if (timeSinceLastSave < _saveThrottleInterval)
+                    {
+                        await Task.Delay(_saveThrottleInterval - timeSinceLastSave);
+                    }
+
+                    await SaveAttemptsAsync();
+                    _lastSaveTime = DateTime.UtcNow;
+                }
+                finally
+                {
+                    _saveThrottle.Release();
+                }
+            }
         }
 
         public int GetTotalAttempts(TimeSpan window)
         {
             var cutoffTime = DateTime.Now.Subtract(window);
-            int total = 0;
-
-            foreach (var kvp in _attempts)
-            {
-                lock (kvp.Value)
-                {
-                    total += kvp.Value.Count(t => t > cutoffTime);
-                }
-            }
-
-            return total;
+            return _attempts.Sum(kvp => kvp.Value.Count(t => t > cutoffTime));
         }
 
         public int GetRecentAttemptCount(string ipAddress)
         {
-            if (_attempts.TryGetValue(ipAddress, out var attempts))
+            if (_attempts.TryGetValue(ipAddress, out var queue))
             {
                 var cutoffTime = DateTime.Now.AddMinutes(-_timeWindowMinutes);
-                lock (attempts)
-                {
-                    return attempts.Count(t => t > cutoffTime);
-                }
+                return queue.Count(t => t > cutoffTime);
             }
             return 0;
         }
@@ -111,24 +105,26 @@ namespace RDPSecure.Data
         {
             try
             {
-                if (File.Exists(AttemptsFilePath))
+                if (File.Exists(_attemptsFilePath))
                 {
-                    string json = File.ReadAllText(AttemptsFilePath);
-                    var loadedAttempts = JsonConvert.DeserializeObject<Dictionary<string, List<DateTime>>>(json);
-
-                    if (loadedAttempts != null)
+                    lock (_fileLock)
                     {
-                        // Clear existing attempts
-                        _attempts.Clear();
+                        string json = File.ReadAllText(_attemptsFilePath);
+                        var loadedAttempts = JsonConvert.DeserializeObject<Dictionary<string, List<DateTime>>>(json);
 
-                        // Load only attempts within the last 24 hours
-                        var cutoffTime = DateTime.Now.AddHours(-24);
-                        foreach (var kvp in loadedAttempts)
+                        if (loadedAttempts != null)
                         {
-                            var validAttempts = kvp.Value.Where(t => t > cutoffTime).ToList();
-                            if (validAttempts.Any())
+                            _attempts.Clear();
+                            var cutoffTime = DateTime.Now.AddHours(-48); // Keep 48 hours of history
+
+                            foreach (var kvp in loadedAttempts)
                             {
-                                _attempts[kvp.Key] = validAttempts;
+                                var validAttempts = kvp.Value.Where(t => t > cutoffTime).ToList();
+                                if (validAttempts.Any())
+                                {
+                                    var queue = new ConcurrentQueue<DateTime>(validAttempts);
+                                    _attempts[kvp.Key] = queue;
+                                }
                             }
                         }
                     }
@@ -140,26 +136,19 @@ namespace RDPSecure.Data
             }
         }
 
-        public void SaveAttempts()
+        public async Task SaveAttemptsAsync()
         {
+            if (_disposed) return;
+
             try
             {
-                lock (_fileLock)
-                {
-                    var attemptsToSave = _attempts.ToDictionary(
-                        kvp => kvp.Key,
-                        kvp =>
-                        {
-                            lock (kvp.Value)
-                            {
-                                return kvp.Value.ToList();
-                            }
-                        }
-                    );
+                var attemptsToSave = _attempts.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value.ToList()
+                );
 
-                    string json = JsonConvert.SerializeObject(attemptsToSave, Formatting.Indented);
-                    File.WriteAllText(AttemptsFilePath, json);
-                }
+                var json = JsonConvert.SerializeObject(attemptsToSave, Formatting.Indented);
+                await File.WriteAllTextAsync(_attemptsFilePath, json);
             }
             catch (Exception ex)
             {
@@ -171,76 +160,54 @@ namespace RDPSecure.Data
         {
             try
             {
-                // Keep attempts from last 48 hours for history
                 var cutoffTime = DateTime.Now.AddHours(-48);
-                bool hasChanges = false;
-
-                foreach (var ip in _attempts.Keys)
+                foreach (var queue in _attempts.Values)
                 {
-                    if (_attempts.TryGetValue(ip, out var attempts))
+                    while (queue.TryPeek(out DateTime oldest) && oldest <= cutoffTime)
                     {
-                        lock (attempts)
-                        {
-                            int initialCount = attempts.Count;
-                            attempts.RemoveAll(t => t <= cutoffTime);
-                            if (attempts.Count != initialCount)
-                            {
-                                hasChanges = true;
-                            }
-                        }
+                        queue.TryDequeue(out _);
                     }
                 }
 
-                // Remove empty entries
+                // Remove empty queues
                 var emptyKeys = _attempts.Where(kvp => !kvp.Value.Any())
                                        .Select(kvp => kvp.Key)
                                        .ToList();
+
                 foreach (var key in emptyKeys)
                 {
                     _attempts.TryRemove(key, out _);
-                    hasChanges = true;
                 }
 
-                if (hasChanges)
+                if (emptyKeys.Any())
                 {
-                    SaveAttempts();
+                    SaveAttemptsAsync().Wait();
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError($"Error cleaning old attempts: {ex.Message}");
             }
-        
-    
-
         }
 
         public void RemoveAttempts(string ipAddress)
         {
             if (_attempts.TryRemove(ipAddress, out _))
             {
-                SaveAttempts();
-            }
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!_disposed)
-            {
-                if (disposing)
-                {
-                    _saveTimer?.Dispose();
-                    _cleanupTimer?.Dispose();
-                    SaveAttempts(); // Final save on disposal
-                }
-                _disposed = true;
+                SaveAttemptsAsync().Wait();
             }
         }
 
         public void Dispose()
         {
-            Dispose(true);
-            GC.SuppressFinalize(this);
+            if (!_disposed)
+            {
+                _disposed = true;
+                _saveTimer?.Dispose();
+                _cleanupTimer?.Dispose();
+                _saveThrottle?.Dispose();
+                SaveAttemptsAsync().Wait();
+            }
         }
     }
 }
