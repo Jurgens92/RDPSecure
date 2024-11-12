@@ -400,6 +400,7 @@ public partial class MainForm : Form
         //button clicks
         btnSettings.Click += OnOpenSettings;
         btnExit.Click += OnExit;
+     //   btnExit.Hide();  // Hide exit button
 
         //tooltip clicks
         toolStripMenuItem1.Click += OnOpenDashboard;  // Open Dashboard
