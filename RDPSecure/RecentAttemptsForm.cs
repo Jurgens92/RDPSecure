@@ -18,6 +18,7 @@ namespace RDPSecure
         private readonly SecurityLogger _logger;
         private System.Windows.Forms.Timer _refreshTimer;
         private DataGridView gridAttempts;
+        private int _lastSelectedIndex = -1;
 
         public RecentAttemptsForm(RDPMonitorService monitorService)
         {
@@ -60,7 +61,7 @@ namespace RDPSecure
         {
             _refreshTimer = new System.Windows.Forms.Timer
             {
-                Interval = 5000 // Refresh every 5 seconds
+                Interval = 20000  // Change to 20 seconds instead of 5
             };
             _refreshTimer.Tick += (s, e) => RefreshAttempts();
             _refreshTimer.Start();
@@ -68,6 +69,25 @@ namespace RDPSecure
 
         private void SetupGrid()
         {
+            gridAttempts.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            gridAttempts.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            gridAttempts.MultiSelect = false;
+            gridAttempts.ReadOnly = true;
+            gridAttempts.AllowUserToAddRows = false;
+            gridAttempts.AllowUserToDeleteRows = false;
+            gridAttempts.RowHeadersVisible = false;
+            gridAttempts.AllowUserToResizeColumns = false;
+            gridAttempts.AllowUserToResizeRows = false;
+
+            // Handle selection change
+            gridAttempts.SelectionChanged += (s, e) =>
+            {
+                if (gridAttempts.SelectedRows.Count > 0)
+                {
+                    _lastSelectedIndex = gridAttempts.SelectedRows[0].Index;
+                }
+            };
+
             RefreshAttempts();
 
             // Subscribe to new attempts
@@ -77,23 +97,51 @@ namespace RDPSecure
             };
         }
 
-        private void RefreshAttempts()
+        private void RefreshAttempts(bool maintainPosition = false)
         {
             try
             {
-                var attempts = _monitorService.GetRecentAttempts(); // You'll need to add this method
-                gridAttempts.Rows.Clear();
-
-                foreach (var attempt in attempts)
+                // Store current position if needed
+                int firstDisplayedRow = -1;
+                int selectedRow = -1;
+                if (maintainPosition && gridAttempts.Rows.Count > 0)
                 {
-                    string status = _monitorService.IsWhitelisted(attempt.IPAddress) ? "Whitelisted" :
-                                   _monitorService.IsIPBanned(attempt.IPAddress) ? "Banned" : "Normal";
+                    firstDisplayedRow = gridAttempts.FirstDisplayedScrollingRowIndex;
+                    selectedRow = gridAttempts.SelectedRows.Count > 0 ?
+                        gridAttempts.SelectedRows[0].Index : -1;
+                }
 
-                    gridAttempts.Rows.Add(
-                        attempt.IPAddress,
-                        attempt.Timestamp.ToString("yyyy-MM-dd HH:mm:ss"),
-                        status
-                    );
+                var attempts = _monitorService.GetRecentAttempts();
+
+                // Only refresh if there are changes
+                if (attempts.Count != gridAttempts.Rows.Count)
+                {
+                    gridAttempts.SuspendLayout();
+                    gridAttempts.Rows.Clear();
+
+                    foreach (var attempt in attempts)
+                    {
+                        string status = _monitorService.IsWhitelisted(attempt.IPAddress) ? "Whitelisted" :
+                                      _monitorService.IsIPBanned(attempt.IPAddress) ? "Banned" : "Normal";
+
+                        gridAttempts.Rows.Add(
+                            attempt.IPAddress,
+                            attempt.Timestamp.ToString("yyyy-MM-dd HH:mm:ss"),
+                            status
+                        );
+                    }
+
+                    // Restore position if needed
+                    if (maintainPosition && firstDisplayedRow >= 0 && firstDisplayedRow < gridAttempts.Rows.Count)
+                    {
+                        gridAttempts.FirstDisplayedScrollingRowIndex = firstDisplayedRow;
+                        if (selectedRow >= 0 && selectedRow < gridAttempts.Rows.Count)
+                        {
+                            gridAttempts.Rows[selectedRow].Selected = true;
+                        }
+                    }
+
+                    gridAttempts.ResumeLayout();
                 }
             }
             catch (Exception ex)
@@ -109,11 +157,21 @@ namespace RDPSecure
                 string status = _monitorService.IsWhitelisted(ipAddress) ? "Whitelisted" :
                                _monitorService.IsIPBanned(ipAddress) ? "Banned" : "Normal";
 
+                int firstDisplayed = gridAttempts.FirstDisplayedScrollingRowIndex;
+
+                gridAttempts.SuspendLayout();
                 gridAttempts.Rows.Insert(0,
                     ipAddress,
                     timestamp.ToString("yyyy-MM-dd HH:mm:ss"),
                     status
                 );
+
+                // Maintain scroll position if user has scrolled down
+                if (firstDisplayed > 0)
+                {
+                    gridAttempts.FirstDisplayedScrollingRowIndex = firstDisplayed + 1;
+                }
+                gridAttempts.ResumeLayout();
             }
             catch (Exception ex)
             {
