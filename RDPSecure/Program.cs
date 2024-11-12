@@ -3,6 +3,7 @@ using RDPSecure.Services;
 using RDPSecure.Logging;
 using System.ServiceProcess;
 using System.Threading;
+using RDPSecure.Licensing;
 
 namespace RDPSecure;
 
@@ -10,15 +11,20 @@ public static class Program
 {
     public const string VERSION = "1.0.0";
     private static Mutex? _mutex;
+
     [STAThread]
     static void Main(string[] args)
     {
+        // Initialize Windows Forms configuration
+        Application.SetHighDpiMode(HighDpiMode.SystemAware);
+        Application.EnableVisualStyles();
+        Application.SetCompatibleTextRenderingDefault(false);
+
         const string appName = "RDPSecureApp";
         _mutex = new Mutex(true, appName, out bool createdNew);
 
         if (!createdNew)
         {
-            // Application is already running
             if (Environment.UserInteractive)
             {
                 MessageBox.Show(
@@ -33,20 +39,28 @@ public static class Program
 
         try
         {
+            // Initialize basic services
+            var logger = new SecurityLogger();
+
+            // Check license before proceeding
+            if (!CheckLicense(logger))
+            {
+                return;
+            }
+
             // Determine if running as a service or application
             if (!Environment.UserInteractive)
             {
                 // Running as a service
                 ServiceBase[] ServicesToRun = new ServiceBase[]
                 {
-                    new RDPSecureService()
+                        new RDPSecureService()
                 };
                 ServiceBase.Run(ServicesToRun);
             }
             else
             {
                 // Running as a regular application
-                ApplicationConfiguration.Initialize();
                 Application.Run(new MainForm());
             }
         }
@@ -76,6 +90,23 @@ public static class Program
                     MessageBoxIcon.Error
                 );
             }
+        }
+    }
+
+    private static bool CheckLicense(ISecurityLogger logger)
+    {
+        if (!Environment.UserInteractive)
+        {
+            // When running as a service, just validate the license
+            var licenseManager = new LicenseManager(logger);
+            var (isValid, _) = licenseManager.ValidateLicense();
+            return isValid;
+        }
+
+        // Show license form for interactive mode
+        using (var licenseForm = new LicenseForm(logger))
+        {
+            return licenseForm.ShowDialog() == DialogResult.OK;
         }
     }
 
