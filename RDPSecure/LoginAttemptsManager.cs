@@ -7,6 +7,7 @@ namespace RDPSecure.Data
 {
     public class LoginAttemptsManager : IDisposable
     {
+        private static readonly string AttemptsFilePath = AppConfig.AttemptsPath;        
         private readonly ConcurrentDictionary<string, List<DateTime>> _attempts;
         private readonly string _attemptsFilePath;
         private readonly object _fileLock = new object();
@@ -23,6 +24,8 @@ namespace RDPSecure.Data
             _attempts = new ConcurrentDictionary<string, List<DateTime>>(StringComparer.OrdinalIgnoreCase);
             _attemptsFilePath = Path.Combine(AppConfig.AppDataPath, "login_attempts.json");
 
+
+            AppConfig.EnsureDirectoriesExist();
             // Load existing attempts - modified to keep a longer history
             LoadAttempts();
 
@@ -104,52 +107,46 @@ namespace RDPSecure.Data
             return 0;
         }
 
-        private void LoadAttempts()
+        public void LoadAttempts()
         {
             try
             {
-                if (File.Exists(_attemptsFilePath))
+                if (File.Exists(AttemptsFilePath))
                 {
-                    lock (_fileLock)
+                    string json = File.ReadAllText(AttemptsFilePath);
+                    var loadedAttempts = JsonConvert.DeserializeObject<Dictionary<string, List<DateTime>>>(json);
+
+                    if (loadedAttempts != null)
                     {
-                        string json = File.ReadAllText(_attemptsFilePath);
-                        var loadedAttempts = JsonConvert.DeserializeObject<Dictionary<string, List<DateTime>>>(json);
+                        // Clear existing attempts
+                        _attempts.Clear();
 
-                        if (loadedAttempts != null)
+                        // Load only attempts within the last 24 hours
+                        var cutoffTime = DateTime.Now.AddHours(-24);
+                        foreach (var kvp in loadedAttempts)
                         {
-                            _attempts.Clear();
-
-                            // Keep attempts from the last 48 hours instead of 24
-                            var cutoffTime = DateTime.Now.AddHours(-48);
-                            foreach (var kvp in loadedAttempts)
+                            var validAttempts = kvp.Value.Where(t => t > cutoffTime).ToList();
+                            if (validAttempts.Any())
                             {
-                                var validAttempts = kvp.Value.Where(t => t > cutoffTime).ToList();
-                                if (validAttempts.Any())
-                                {
-                                    _attempts[kvp.Key] = validAttempts;
-                                }
+                                _attempts[kvp.Key] = validAttempts;
                             }
-
-                            _logger.LogInformation($"Loaded {_attempts.Count} IPs with recent attempts");
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error loading login attempts: {ex.Message}");
+                _logger.LogError($"Error loading attempts: {ex.Message}");
             }
         }
 
-        private void SaveAttempts()
+        public void SaveAttempts()
         {
             try
             {
                 lock (_fileLock)
                 {
-                    Directory.CreateDirectory(Path.GetDirectoryName(_attemptsFilePath)!);
-
-                    var attemptsSnapshot = _attempts.ToDictionary(
+                    var attemptsToSave = _attempts.ToDictionary(
                         kvp => kvp.Key,
                         kvp =>
                         {
@@ -160,13 +157,13 @@ namespace RDPSecure.Data
                         }
                     );
 
-                    string json = JsonConvert.SerializeObject(attemptsSnapshot, Formatting.Indented);
-                    File.WriteAllText(_attemptsFilePath, json);
+                    string json = JsonConvert.SerializeObject(attemptsToSave, Formatting.Indented);
+                    File.WriteAllText(AttemptsFilePath, json);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error saving login attempts: {ex.Message}");
+                _logger.LogError($"Error saving attempts: {ex.Message}");
             }
         }
 

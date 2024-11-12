@@ -47,10 +47,16 @@ namespace RDPSecure
 
         protected override void OnStart(string[] args)
         {
-            WriteToFile("Service is starting");
-
             try
             {
+                WriteToFile("Service is starting");
+
+                // Ensure we have proper permissions to the directories
+                AppConfig.EnsureDirectoriesExist();
+
+                // Set permissions if needed
+                EnsureDirectoryPermissions(AppConfig.AppDataPath);
+
                 _logger = new SecurityLogger();
                 WriteToFile("Loading settings...");
                 var settings = SettingsManager.LoadSettings();
@@ -60,7 +66,6 @@ namespace RDPSecure
 
                 WriteToFile("Starting monitoring...");
                 _monitorService.StartMonitoring();
-                _stateCheckTimer.Start();
 
                 WriteToFile("Service started successfully");
             }
@@ -68,6 +73,33 @@ namespace RDPSecure
             {
                 WriteToFile($"Error starting service: {ex}");
                 throw;
+            }
+        }
+
+        private void EnsureDirectoryPermissions(string path)
+        {
+            try
+            {
+                var directoryInfo = new DirectoryInfo(path);
+                var directorySecurity = directoryInfo.GetAccessControl();
+
+                // Add full control for SYSTEM and Administrators
+                var everyone = new System.Security.Principal.SecurityIdentifier(
+                    System.Security.Principal.WellKnownSidType.WorldSid, null);
+
+                directorySecurity.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
+                    everyone,
+                    System.Security.AccessControl.FileSystemRights.FullControl,
+                    System.Security.AccessControl.InheritanceFlags.ContainerInherit |
+                    System.Security.AccessControl.InheritanceFlags.ObjectInherit,
+                    System.Security.AccessControl.PropagationFlags.None,
+                    System.Security.AccessControl.AccessControlType.Allow));
+
+                directoryInfo.SetAccessControl(directorySecurity);
+            }
+            catch (Exception ex)
+            {
+                WriteToFile($"Error setting directory permissions: {ex.Message}");
             }
         }
 

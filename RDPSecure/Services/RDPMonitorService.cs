@@ -12,6 +12,7 @@ namespace RDPSecure.Services
             public string IPAddress { get; set; } = string.Empty;
             public DateTime Timestamp { get; set; }
         }
+
     public class RDPMonitorService : IRDPMonitorService, IDisposable
     {
         private readonly System.Timers.Timer _cleanupTimer;
@@ -57,6 +58,8 @@ namespace RDPSecure.Services
             }
         }
 
+      
+
         public List<LoginAttempt> GetRecentAttempts()
         {
             var attempts = new List<LoginAttempt>();
@@ -93,8 +96,7 @@ namespace RDPSecure.Services
             }
         }
 
-
-
+     
         public void AddManualBan(string ipAddress, TimeSpan duration)
         {
             try
@@ -207,12 +209,17 @@ namespace RDPSecure.Services
                 {
                     await UpdateLocationForIP(ban.IPAddress);
                 }
+
             }
         }
+
+     
+
         public int GetRecentAttemptsCount()
         {
             try
             {
+                ReloadAttempts();  
                 return _attemptsManager.GetTotalAttempts(TimeSpan.FromHours(24));
             }
             catch (Exception ex)
@@ -418,6 +425,8 @@ namespace RDPSecure.Services
                     IPAddress = ipAddress,
                     Timestamp = DateTime.Now
                 });
+                SaveAttemptsToFile();
+
                 // Check whitelist after raising the event
                 if (IsWhitelisted(ipAddress))
                 {
@@ -475,6 +484,29 @@ namespace RDPSecure.Services
             catch (Exception ex)
             {
                 _logger.LogError($"Error processing login attempt for IP {ipAddress}: {ex.Message}");
+            }
+        }
+        private void SaveAttemptsToFile()
+        {
+            try
+            {
+                _attemptsManager.SaveAttempts(); 
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error saving attempts: {ex.Message}");
+            }
+        }
+        public void ReloadAttempts()
+        {
+            try
+            {
+
+                _attemptsManager.LoadAttempts();  // Make sure this method is public in LoginAttemptsManager
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error reloading attempts: {ex.Message}");
             }
         }
 

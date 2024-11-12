@@ -564,6 +564,7 @@ public partial class MainForm : Form
     {
         try
         {
+            monitorService.ReloadAttempts();
             int attempts = monitorService.GetRecentAttemptsCount();
             if (int.TryParse(lblRecentAttemptsCount.Text, out int currentCount))
             {
