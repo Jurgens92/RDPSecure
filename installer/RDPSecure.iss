@@ -17,7 +17,6 @@ DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 OutputBaseFileName={#AppName}-{#AppVersion}
 OutputDir=.\Output
-SetupIcon=.\publish\{#AppName}.ico
 UninstallDisplayIcon={app}\{#AppName}.ico
 ; Only support 64-bit Windows (matches the win-x64 publish target)
 ArchitecturesSupported=x64
