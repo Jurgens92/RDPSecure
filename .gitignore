@@ -29,3 +29,7 @@ bld/
 msbuild.log
 msbuild.err
 msbuild.wrn
+
+## Installer build artefacts
+installer/publish/
+installer/Output/
