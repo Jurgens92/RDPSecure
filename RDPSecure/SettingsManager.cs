@@ -1,29 +1,40 @@
 using RDPSecure.Data;
+using RDPSecure.Models;
 
 namespace RDPSecure
 {
+    /// <summary>
+    /// Manages application settings persistence.
+    /// This class should not contain any UI logic - exceptions are thrown for the UI layer to handle.
+    /// </summary>
     public static class SettingsManager
     {
         private static DatabaseManager Database => DatabaseProvider.Instance;
 
+        /// <summary>
+        /// Loads application settings from the database.
+        /// Returns default settings if loading fails.
+        /// </summary>
+        /// <returns>Application settings</returns>
         public static AppSettings LoadSettings()
         {
             try
             {
                 return Database.LoadSettings();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                MessageBox.Show(
-                    $"Error loading settings: {ex.Message}\nUsing default settings.",
-                    "Settings Error",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning
-                );
+                // Return default settings if loading fails
+                // The caller can decide how to notify the user
                 return new AppSettings();
             }
         }
 
+        /// <summary>
+        /// Saves application settings to the database.
+        /// </summary>
+        /// <param name="settings">Settings to save</param>
+        /// <exception cref="SettingsException">Thrown when saving fails</exception>
         public static void SaveSettings(AppSettings settings)
         {
             try
@@ -32,15 +43,14 @@ namespace RDPSecure
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
-                    $"Error saving settings: {ex.Message}",
-                    "Settings Error",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error
-                );
+                throw new SettingsException($"Failed to save settings: {ex.Message}", ex);
             }
         }
 
+        /// <summary>
+        /// Saves banned IPs to the database.
+        /// Errors are logged but not thrown to avoid disrupting background operations.
+        /// </summary>
         public static void SaveBannedIPs(Dictionary<string, BanInfo> bannedIPs)
         {
             try
@@ -49,51 +59,43 @@ namespace RDPSecure
             }
             catch (Exception ex)
             {
-                // Log the error but don't show message box as this might be called from a background thread
+                // Log the error but don't throw as this might be called from a background thread
                 var logPath = Path.Combine(AppConfig.AppDataPath, "error.log");
-                File.AppendAllText(logPath, $"{DateTime.Now}: Error saving banned IPs: {ex.Message}\n");
+                try
+                {
+                    File.AppendAllText(logPath, $"{DateTime.Now}: Error saving banned IPs: {ex.Message}\n");
+                }
+                catch
+                {
+                    // Ignore logging failures
+                }
             }
         }
 
+        /// <summary>
+        /// Loads banned IPs from the database.
+        /// Returns an empty dictionary if loading fails.
+        /// </summary>
         public static Dictionary<string, BanInfo> LoadBannedIPs()
         {
             try
             {
                 return Database.LoadBannedIPs();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                MessageBox.Show(
-                    $"Error loading banned IPs: {ex.Message}",
-                    "Load Error",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning
-                );
+                // Return empty dictionary if loading fails
                 return new Dictionary<string, BanInfo>(StringComparer.OrdinalIgnoreCase);
             }
         }
     }
 
-    // Class to store ban information
-    public class BanInfo
+    /// <summary>
+    /// Exception thrown when settings operations fail.
+    /// </summary>
+    public class SettingsException : Exception
     {
-        public string IPAddress { get; set; } = string.Empty;
-        public DateTime BanTime { get; set; }
-        public TimeSpan Duration { get; set; }
-        public DateTime ExpiryTime { get; set; }
-        public int AttemptCount { get; set; }
-        public string Location { get; set; } = "Detecting...";
-        public IPValidator.IPVersion Version { get; set; }
-
-        // Helper property to determine if this is an IPv6 address
-        public bool IsIPv6 => Version == IPValidator.IPVersion.IPv6;
-
-        // Normalize the IP address when setting it
-        public void SetIPAddress(string ip)
-        {
-            IPAddress = IPValidator.NormalizeIP(ip);
-            var (_, _, version) = IPValidator.ValidateIP(ip);
-            Version = version;
-        }
+        public SettingsException(string message) : base(message) { }
+        public SettingsException(string message, Exception innerException) : base(message, innerException) { }
     }
 }

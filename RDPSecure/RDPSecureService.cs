@@ -1,4 +1,5 @@
-﻿using RDPSecure.Logging;
+using RDPSecure.Logging;
+using RDPSecure.Models;
 using RDPSecure.Services;
 using System.ServiceProcess;
 using System.Diagnostics;
@@ -147,7 +148,7 @@ namespace RDPSecure
                     
                     // Update service state
                     _monitorService.OnSettingsChanged();
-                    _monitorService.CleanupBannedIPs();
+                    _monitorService.CleanupExpiredBans();
                 }
             }
             catch (Exception ex)

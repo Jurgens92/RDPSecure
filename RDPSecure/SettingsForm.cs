@@ -481,10 +481,22 @@ namespace RDPSecure
             currentSettings.BlacklistedIPs.Add(entry);
 
             // Add to banned IPs in monitor service
-            monitorService.AddManualBan(ip, TimeSpan.FromDays(36500)); // Duration for manual blacklist
-                        
+            var banResult = monitorService.AddManualBan(ip, TimeSpan.FromDays(36500)); // Duration for manual blacklist
+
+            if (!banResult.Success)
+            {
+                // Remove from blacklist since ban failed
+                currentSettings.BlacklistedIPs.Remove(entry);
+                MessageBox.Show(
+                    banResult.ErrorMessage ?? "Failed to ban IP.",
+                    banResult.ErrorType == RDPMonitorService.BanErrorType.WhitelistConflict ? "Whitelist Conflict" : "Ban Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
             SaveSettings();
-                        
+
             txtIPAddress.Clear();
 
             MessageBox.Show(
