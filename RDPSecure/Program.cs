@@ -1,9 +1,7 @@
-using Microsoft.Extensions.DependencyInjection;
 using RDPSecure.Services;
 using RDPSecure.Logging;
 using System.ServiceProcess;
 using System.Threading;
-using RDPSecure.Licensing;
 
 namespace RDPSecure;
 
@@ -39,15 +37,6 @@ public static class Program
 
         try
         {
-            // Initialize basic services
-            var logger = new SecurityLogger();
-
-            // Check license before proceeding
-            if (!CheckLicense(logger))
-            {
-                return;
-            }
-
             // Determine if running as a service or application
             if (!Environment.UserInteractive)
             {
@@ -90,32 +79,6 @@ public static class Program
                     MessageBoxIcon.Error
                 );
             }
-        }
-    }
-
-    private static bool CheckLicense(ISecurityLogger logger)
-    {
-        var licenseManager = new LicenseManager(logger);
-        var (isValid, expiryDate) = licenseManager.ValidateLicense();
-
-        if (!Environment.UserInteractive)
-        {
-            // When running as a service, just validate the license
-     
-            return isValid;
-        }
-        if (!isValid)
-        {
-            using (var licenseForm = new LicenseForm(logger))
-            {
-                return licenseForm.ShowDialog() == DialogResult.OK;
-            }
-        }
-
-        // Show license form for interactive mode
-        using (var licenseForm = new LicenseForm(logger))
-        {
-            return true;
         }
     }
 

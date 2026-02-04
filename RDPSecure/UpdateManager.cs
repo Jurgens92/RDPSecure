@@ -11,15 +11,19 @@ namespace RDPSecure
 {
     public class UpdateManager
     {
+        // Static HttpClient to avoid socket exhaustion
+        private static readonly HttpClient _httpClient = new HttpClient
+        {
+            Timeout = TimeSpan.FromMinutes(5)
+        };
+
         private readonly string _updateServerUrl;
-        private readonly HttpClient _httpClient;
         private readonly ISecurityLogger _logger;
         private readonly string _currentVersion;
 
         public UpdateManager(string updateServerUrl, string currentVersion, ISecurityLogger logger)
         {
             _updateServerUrl = updateServerUrl.TrimEnd('/');
-            _httpClient = new HttpClient();
             _logger = logger;
             _currentVersion = currentVersion;
         }

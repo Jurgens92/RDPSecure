@@ -36,7 +36,6 @@ partial class MainForm
         DataGridViewCellStyle dataGridViewCellStyle6 = new DataGridViewCellStyle();
         System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
         panelStats = new Panel();
-        lblLicenseStatus = new Label();
         btnExit = new Button();
         btnSettings = new Button();
         panelWhitelisted = new Panel();
@@ -71,10 +70,9 @@ partial class MainForm
         ((System.ComponentModel.ISupportInitialize)gridBannedIPs).BeginInit();
         contextMenuTray.SuspendLayout();
         SuspendLayout();
-        // 
+        //
         // panelStats
-        // 
-        panelStats.Controls.Add(lblLicenseStatus);
+        //
         panelStats.Controls.Add(btnExit);
         panelStats.Controls.Add(btnSettings);
         panelStats.Controls.Add(panelWhitelisted);
@@ -86,16 +84,7 @@ partial class MainForm
         panelStats.Padding = new Padding(20);
         panelStats.Size = new Size(784, 124);
         panelStats.TabIndex = 0;
-        // 
-        // lblLicenseStatus
-        // 
-        lblLicenseStatus.AutoSize = true;
-        lblLicenseStatus.Location = new Point(576, 95);
-        lblLicenseStatus.Name = "lblLicenseStatus";
-        lblLicenseStatus.Size = new Size(38, 15);
-        lblLicenseStatus.TabIndex = 5;
-        lblLicenseStatus.Text = "label1";
-        // 
+        //
         // btnExit
         // 
         btnExit.BackColor = Color.FromArgb(52, 152, 219);
@@ -403,5 +392,4 @@ partial class MainForm
     private ToolStripMenuItem toolStripMenuItem3;
     private ToolStripMenuItem exitToolStripMenuItem;
     private Button btnExit;
-    private Label lblLicenseStatus;
 }

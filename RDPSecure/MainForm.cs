@@ -1,8 +1,6 @@
 using RDPSecure.Data;
 using RDPSecure.Logging;
 using RDPSecure.Services;
-using RDPSecure.Licensing;
-using Newtonsoft.Json;
 
 namespace RDPSecure;
 
@@ -15,15 +13,14 @@ public partial class MainForm : Form
     private readonly RDPMonitorService monitorService;
     private readonly SecurityLogger logger;
     private readonly System.Windows.Forms.Timer _attemptsUpdateTimer;
-    private readonly LicenseManager _licenseManager;
-    
+
 
     public MainForm()
     {
         try
         {
-            InitializeComponent();         
-          
+            InitializeComponent();
+
             // Set form and notification icons
             string iconPath = Path.Combine(Application.StartupPath, "shield.ico");
             if (File.Exists(iconPath))
@@ -37,18 +34,6 @@ public partial class MainForm : Form
             settings = SettingsManager.LoadSettings();
             monitorService = new RDPMonitorService(settings);
             monitorService.RefreshSettings();
-            _licenseManager = new LicenseManager(logger);
-
-            // Initialize license status update timer
-            var licenseTimer = new System.Windows.Forms.Timer
-            {
-                Interval = 60000  // Update every minute
-            };
-            licenseTimer.Tick += (s, e) => UpdateLicenseStatus();
-          
-
-            UpdateLicenseStatus();
-            licenseTimer.Start();
 
 
             lblRecentAttemptsCount.Text = monitorService.GetRecentAttemptsCount().ToString();
@@ -109,65 +94,6 @@ public partial class MainForm : Form
         }
     }
 
-    private void UpdateLicenseStatus()
-    {
-        try
-        {
-            var (isValid, expiryDate) = _licenseManager.ValidateLicense();
-
-            if (isValid)
-            {
-                if (expiryDate.HasValue)
-                {
-                    var daysRemaining = (expiryDate.Value - DateTime.UtcNow).TotalDays;
-                    if (daysRemaining > 0)
-                    {
-                        lblLicenseStatus.Text = $"Licensed: {Math.Ceiling(daysRemaining)} days remaining";
-                        lblLicenseStatus.ForeColor = daysRemaining < 30 ? Color.DarkOrange : Color.Green;
-                    }
-                    else
-                    {
-                        lblLicenseStatus.Text = "License Expired";
-                        lblLicenseStatus.ForeColor = Color.Red;
-                    }
-                }
-                else
-                {
-                    var trialPath = _licenseManager.TrialPath;
-                    if (File.Exists(trialPath))
-                    {
-                        var trialJson = File.ReadAllText(trialPath);
-                        var trial = JsonConvert.DeserializeObject<dynamic>(trialJson)!;
-                        var startDate = DateTime.Parse(trial.StartDate.ToString());
-                        var daysRemaining = 30 - (DateTime.UtcNow - startDate).TotalDays;
-
-                        lblLicenseStatus.Text = $"Trial Version: {Math.Ceiling(daysRemaining)} days remaining";
-                        lblLicenseStatus.ForeColor = daysRemaining < 7 ? Color.DarkOrange : Color.Blue;
-                    }
-                }
-            }
-            else
-            {
-                lblLicenseStatus.Text = "License Status: Invalid";
-                lblLicenseStatus.ForeColor = Color.Red;
-
-                MessageBox.Show(
-                    "Your license has expired. The application will now close.",
-                    "License Expired",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning
-                );
-
-                Application.Exit();
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError("Error updating license status", ex);
-            lblLicenseStatus.Text = "License Status: Error";
-            lblLicenseStatus.ForeColor = Color.Red;
-        }
-    }
 
     private void InitializeAttemptTracking()
     {
@@ -273,42 +199,6 @@ public partial class MainForm : Form
 
         // Assign context menu to grid
         gridBannedIPs.ContextMenuStrip = contextMenu;
-
-        var manageLicenseItem = new ToolStripMenuItem("Manage License");
-        manageLicenseItem.Click += OnManageLicense;
-
-        contextMenuTray.Items.Insert(
-            contextMenuTray.Items.Count - 2,  // Insert before separator and Exit
-            manageLicenseItem
-        );
-        contextMenuTray.Items.Insert(
-            contextMenuTray.Items.Count - 2,
-            new ToolStripSeparator()
-        );
-    }
-
-    private void OnManageLicense(object? sender, EventArgs e)
-    {
-        try
-        {
-            using (var licenseForm = new LicenseForm(logger))
-            {
-                if (licenseForm.ShowDialog(this) == DialogResult.OK)
-                {
-                    UpdateLicenseStatus();
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError("Error showing license form", ex);
-            MessageBox.Show(
-                "Error managing license: " + ex.Message,
-                "License Error",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Error
-            );
-        }
     }
 
     private void OnRemoveBan(object? sender, EventArgs e)
@@ -502,10 +392,6 @@ public partial class MainForm : Form
 
     private void SetupEventHandlers()
     {
-
-        lblLicenseStatus.Click += OnManageLicense;
-        lblLicenseStatus.Cursor = Cursors.Hand;
-
         panelRecentAttempts.Click += ShowRecentAttempts;
         lblRecentAttemptsCount.Click += ShowRecentAttempts;
         lblRecentAttemptsTitle.Click += ShowRecentAttempts;
