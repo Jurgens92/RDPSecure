@@ -251,7 +251,7 @@ namespace RDPSecure.Services
                     });
 
                     // Save updated ban info
-                    SettingsManager.SaveBannedIPs(_bannedIPs);
+                    SettingsManager.SaveBannedIPs(new Dictionary<string, BanInfo>(_bannedIPs));
                 }
             }
             catch (Exception ex)
