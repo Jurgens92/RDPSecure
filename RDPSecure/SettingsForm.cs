@@ -354,13 +354,13 @@ namespace RDPSecure
             if (gridIPList.SelectedRows.Count > 0)
             {
                 var row = gridIPList.SelectedRows[0];
-                string ip = row.Cells["colIP"].Value?.ToString() ?? "";
+                string displayAddress = row.Cells["colIP"].Value?.ToString() ?? "";
 
-                if (string.IsNullOrEmpty(ip))
+                if (string.IsNullOrEmpty(displayAddress))
                     return;
 
                 var result = MessageBox.Show(
-                    $"Are you sure you want to remove {ip} from the whitelist?\n\n" +
+                    $"Are you sure you want to remove {displayAddress} from the whitelist?\n\n" +
                     "This IP will be subject to normal protection rules after removal.",
                     "Confirm Remove",
                     MessageBoxButtons.YesNo,
@@ -370,15 +370,14 @@ namespace RDPSecure
                 {
                     try
                     {
-                        // Remove from settings
-                        currentSettings.WhitelistedIPs.RemoveAll(w =>
-                            string.Equals(w.IPAddress, ip, StringComparison.OrdinalIgnoreCase));
+                        // Remove from settings using the new helper method that handles both single IPs and subnets
+                        currentSettings.WhitelistedIPs.RemoveAll(w => w.MatchesDisplayAddress(displayAddress));
 
                         // Remove from grid
                         gridIPList.Rows.Remove(row);
 
                         SaveSettings();
-                        logger.LogInformation($"IP {ip} removed from whitelist");
+                        logger.LogInformation($"IP/Subnet {displayAddress} removed from whitelist");
                     }
                     catch (Exception ex)
                     {
@@ -715,10 +714,10 @@ namespace RDPSecure
             if (gridIPList.SelectedRows.Count > 0)
             {
                 var row = gridIPList.SelectedRows[0];
-                string ip = row.Cells["colIP"].Value?.ToString() ?? "";
+                string displayAddress = row.Cells["colIP"].Value?.ToString() ?? "";
 
                 var result = MessageBox.Show(
-                    $"Are you sure you want to remove {ip} from the whitelist?",
+                    $"Are you sure you want to remove {displayAddress} from the whitelist?",
                     "Confirm Remove",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question);
@@ -727,9 +726,8 @@ namespace RDPSecure
                 {
                     try
                     {
-                        // Remove from settings
-                        currentSettings.WhitelistedIPs.RemoveAll(w =>
-                            string.Equals(w.IPAddress, ip, StringComparison.OrdinalIgnoreCase));
+                        // Remove from settings using helper method that handles both single IPs and subnets
+                        currentSettings.WhitelistedIPs.RemoveAll(w => w.MatchesDisplayAddress(displayAddress));
 
                         // Remove from grid
                         gridIPList.Rows.Remove(row);
@@ -743,7 +741,7 @@ namespace RDPSecure
                             mainForm.Invoke(new Action(() => mainForm.RefreshWhitelistCount()));
                         }
 
-                        logger.LogInformation($"IP {ip} removed from whitelist");
+                        logger.LogInformation($"IP/Subnet {displayAddress} removed from whitelist");
                     }
                     catch (Exception ex)
                     {
@@ -937,6 +935,13 @@ namespace RDPSecure
                 firewallTimer.Dispose();
             }
 
+            // Stop and dispose of the audit timer
+            if (_auditTimer != null)
+            {
+                _auditTimer.Stop();
+                _auditTimer.Dispose();
+            }
+
             if (DialogResult == DialogResult.OK)
             {
                 try
@@ -1089,6 +1094,9 @@ namespace RDPSecure
             // Initial status check
             UpdateFirewallStatus(lblFirewallStatus, btnEnableFirewall);
 
+            // Initialize audit policy controls (created once, not on every timer tick)
+            InitializeAuditPolicyControls();
+
             // Add click handlers
             btnInstall.Click += async (s, e) => await InstallServiceAsync();
             btnUninstall.Click += async (s, e) => await UninstallServiceAsync();
@@ -1107,6 +1115,8 @@ namespace RDPSecure
             UpdateServiceStatus(lblStatus, btnStartStop, btnInstall, btnUninstall);
         }
 
+        private bool _firewallWarningShown = false;
+
         private void UpdateFirewallStatus(Label statusLabel, Button enableButton)
         {
             bool isEnabled = IsWindowsFirewallEnabled();
@@ -1115,20 +1125,38 @@ namespace RDPSecure
             statusLabel.ForeColor = isEnabled ? Color.Green : Color.Red;
             enableButton.Visible = !isEnabled;
 
-            // Show notification if firewall is disabled
-            if (!isEnabled && WindowState == FormWindowState.Normal)
+            // Show notification if firewall is disabled (only once per form session)
+            if (!isEnabled && !_firewallWarningShown && WindowState == FormWindowState.Normal)
             {
+                _firewallWarningShown = true;
                 MessageBox.Show(
                     "Windows Firewall is currently disabled. It is recommended to enable the firewall for proper protection.",
                     "Firewall Warning",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
             }
+            else if (isEnabled)
+            {
+                // Reset warning flag when firewall is enabled
+                _firewallWarningShown = false;
+            }
+        }
 
-            var groupBoxAudit = new GroupBox
+        // Audit controls - created once and stored as fields
+        private GroupBox? _auditGroupBox;
+        private Label? _lblLogonAudit;
+        private Label? _lblOtherLogon;
+        private Button? _btnEnableAudit;
+        private System.Windows.Forms.Timer? _auditTimer;
+
+        private void InitializeAuditPolicyControls()
+        {
+            if (_auditGroupBox != null) return; // Already initialized
+
+            _auditGroupBox = new GroupBox
             {
                 Text = "Audit Policy Status",
-                Location = new Point(20, 280), // Position below firewall group
+                Location = new Point(20, 280),
                 Size = new Size(520, 120),
                 Parent = tabSystem
             };
@@ -1139,14 +1167,14 @@ namespace RDPSecure
                 Text = "Logon Auditing:",
                 Location = new Point(20, 30),
                 AutoSize = true,
-                Parent = groupBoxAudit
+                Parent = _auditGroupBox
             };
 
-            var lblLogonAudit = new Label
+            _lblLogonAudit = new Label
             {
                 Location = new Point(130, 30),
                 AutoSize = true,
-                Parent = groupBoxAudit
+                Parent = _auditGroupBox
             };
 
             // Other Logon Events Status
@@ -1155,26 +1183,26 @@ namespace RDPSecure
                 Text = "Other Logon Events:",
                 Location = new Point(20, 55),
                 AutoSize = true,
-                Parent = groupBoxAudit
+                Parent = _auditGroupBox
             };
 
-            var lblOtherLogon = new Label
+            _lblOtherLogon = new Label
             {
                 Location = new Point(130, 55),
                 AutoSize = true,
-                Parent = groupBoxAudit
+                Parent = _auditGroupBox
             };
 
             // Enable button
-            var btnEnableAudit = new Button
+            _btnEnableAudit = new Button
             {
                 Text = "Enable Auditing",
                 Location = new Point(20, 85),
                 Size = new Size(120, 23),
-                Parent = groupBoxAudit
+                Parent = _auditGroupBox
             };
 
-            btnEnableAudit.Click += async (s, e) =>
+            _btnEnableAudit.Click += async (s, e) =>
             {
                 try
                 {
@@ -1200,7 +1228,7 @@ namespace RDPSecure
                     if (result == DialogResult.Yes)
                     {
                         Cursor = Cursors.WaitCursor;
-                        btnEnableAudit.Enabled = false;
+                        _btnEnableAudit.Enabled = false;
 
                         var auditManager = new AuditPolicyManager(logger);
                         bool success = await Task.Run(() => auditManager.EnableAuditPolicies());
@@ -1214,7 +1242,7 @@ namespace RDPSecure
                                 MessageBoxIcon.Information);
 
                             // Refresh status
-                            UpdateAuditStatus(lblLogonAudit, lblOtherLogon, btnEnableAudit);
+                            UpdateAuditStatusInternal();
                         }
                         else
                         {
@@ -1237,22 +1265,28 @@ namespace RDPSecure
                 finally
                 {
                     Cursor = Cursors.Default;
-                    btnEnableAudit.Enabled = true;
+                    if (_btnEnableAudit != null)
+                        _btnEnableAudit.Enabled = true;
                 }
             };
 
             // Timer to update audit status
-            var auditTimer = new System.Windows.Forms.Timer
+            _auditTimer = new System.Windows.Forms.Timer
             {
                 Interval = 5000  // Check every 5 seconds
             };
 
-            auditTimer.Tick += (s, e) => UpdateAuditStatus(lblLogonAudit, lblOtherLogon, btnEnableAudit);
-            auditTimer.Start();
+            _auditTimer.Tick += (s, e) => UpdateAuditStatusInternal();
+            _auditTimer.Start();
 
             // Initial status check
-            UpdateAuditStatus(lblLogonAudit, lblOtherLogon, btnEnableAudit);
+            UpdateAuditStatusInternal();
+        }
 
+        private void UpdateAuditStatusInternal()
+        {
+            if (_lblLogonAudit == null || _lblOtherLogon == null || _btnEnableAudit == null) return;
+            UpdateAuditStatus(_lblLogonAudit, _lblOtherLogon, _btnEnableAudit);
         }
 
         private void UpdateAuditStatus(Label lblLogonAudit, Label lblOtherLogon, Button btnEnableAudit)

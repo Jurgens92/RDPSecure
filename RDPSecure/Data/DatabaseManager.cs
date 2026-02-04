@@ -353,7 +353,7 @@ namespace RDPSecure.Data
                 ";
                 command.Parameters.AddWithValue("@ip", ban.IPAddress);
                 command.Parameters.AddWithValue("@banTime", ban.BanTime.ToString("O"));
-                command.Parameters.AddWithValue("@duration", ban.Duration.ToString());
+                command.Parameters.AddWithValue("@duration", ban.Duration.ToString("c")); // Use invariant format
                 command.Parameters.AddWithValue("@expiry", ban.ExpiryTime.ToString("O"));
                 command.Parameters.AddWithValue("@attempts", ban.AttemptCount);
                 command.Parameters.AddWithValue("@location", ban.Location);
@@ -403,9 +403,9 @@ namespace RDPSecure.Data
                     var ban = new BanInfo
                     {
                         IPAddress = reader.GetString(reader.GetOrdinal("IPAddress")),
-                        BanTime = DateTime.Parse(reader.GetString(reader.GetOrdinal("BanTime"))),
-                        Duration = TimeSpan.Parse(reader.GetString(reader.GetOrdinal("Duration"))),
-                        ExpiryTime = DateTime.Parse(reader.GetString(reader.GetOrdinal("ExpiryTime"))),
+                        BanTime = DateTime.Parse(reader.GetString(reader.GetOrdinal("BanTime")), null, System.Globalization.DateTimeStyles.RoundtripKind),
+                        Duration = TimeSpan.Parse(reader.GetString(reader.GetOrdinal("Duration")), System.Globalization.CultureInfo.InvariantCulture),
+                        ExpiryTime = DateTime.Parse(reader.GetString(reader.GetOrdinal("ExpiryTime")), null, System.Globalization.DateTimeStyles.RoundtripKind),
                         AttemptCount = reader.GetInt32(reader.GetOrdinal("AttemptCount")),
                         Location = reader.GetString(reader.GetOrdinal("Location")),
                         Version = (IPValidator.IPVersion)reader.GetInt32(reader.GetOrdinal("Version"))
@@ -477,7 +477,7 @@ namespace RDPSecure.Data
         {
             lock (_lock)
             {
-                var cutoff = DateTime.Now.AddMinutes(-timeWindowMinutes);
+                var cutoff = DateTime.UtcNow.AddMinutes(-timeWindowMinutes);
                 using var command = _connection.CreateCommand();
                 command.CommandText = "SELECT COUNT(*) FROM LoginAttempts WHERE IPAddress = @ip AND Timestamp > @cutoff";
                 command.Parameters.AddWithValue("@ip", ipAddress);
@@ -490,7 +490,7 @@ namespace RDPSecure.Data
         {
             lock (_lock)
             {
-                var cutoff = DateTime.Now.Subtract(window);
+                var cutoff = DateTime.UtcNow.Subtract(window);
                 using var command = _connection.CreateCommand();
                 command.CommandText = "SELECT COUNT(*) FROM LoginAttempts WHERE Timestamp > @cutoff";
                 command.Parameters.AddWithValue("@cutoff", cutoff.ToString("O"));

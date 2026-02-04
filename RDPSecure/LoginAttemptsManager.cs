@@ -5,8 +5,7 @@ namespace RDPSecure.Data
 {
     public class LoginAttemptsManager : IDisposable
     {
-        private static readonly Lazy<DatabaseManager> _db = new(() => new DatabaseManager());
-        private static DatabaseManager Database => _db.Value;
+        private static DatabaseManager Database => DatabaseProvider.Instance;
 
         private readonly ConcurrentDictionary<string, ConcurrentQueue<DateTime>> _attempts;
         private readonly ISecurityLogger _logger;
@@ -67,7 +66,7 @@ namespace RDPSecure.Data
             {
                 _logger.LogError($"Error getting total attempts: {ex.Message}");
                 // Fall back to in-memory count
-                var cutoffTime = DateTime.Now.Subtract(window);
+                var cutoffTime = DateTime.UtcNow.Subtract(window);
                 return _attempts.Sum(kvp => kvp.Value.Count(t => t > cutoffTime));
             }
         }
@@ -84,7 +83,7 @@ namespace RDPSecure.Data
                 // Fall back to in-memory count
                 if (_attempts.TryGetValue(ipAddress, out var queue))
                 {
-                    var cutoffTime = DateTime.Now.AddMinutes(-_timeWindowMinutes);
+                    var cutoffTime = DateTime.UtcNow.AddMinutes(-_timeWindowMinutes);
                     return queue.Count(t => t > cutoffTime);
                 }
                 return 0;
@@ -97,14 +96,39 @@ namespace RDPSecure.Data
             {
                 var loadedAttempts = Database.LoadLoginAttempts(TimeSpan.FromHours(48));
 
-                _attempts.Clear();
+                // Merge loaded attempts with existing in-memory data instead of clearing
+                // This prevents losing concurrent additions during load
                 foreach (var kvp in loadedAttempts)
                 {
                     if (kvp.Value.Any())
                     {
-                        var queue = new ConcurrentQueue<DateTime>(kvp.Value);
-                        _attempts[kvp.Key] = queue;
+                        _attempts.AddOrUpdate(
+                            kvp.Key,
+                            _ => new ConcurrentQueue<DateTime>(kvp.Value),
+                            (_, existingQueue) =>
+                            {
+                                // Merge: keep existing items and add any from DB that aren't already there
+                                var existingSet = new HashSet<DateTime>(existingQueue);
+                                foreach (var timestamp in kvp.Value)
+                                {
+                                    if (!existingSet.Contains(timestamp))
+                                    {
+                                        existingQueue.Enqueue(timestamp);
+                                    }
+                                }
+                                return existingQueue;
+                            }
+                        );
                     }
+                }
+
+                // Remove keys that are no longer in the database and have empty queues
+                var keysToRemove = _attempts.Keys
+                    .Where(k => !loadedAttempts.ContainsKey(k) && !_attempts[k].Any())
+                    .ToList();
+                foreach (var key in keysToRemove)
+                {
+                    _attempts.TryRemove(key, out _);
                 }
             }
             catch (Exception ex)
@@ -128,7 +152,7 @@ namespace RDPSecure.Data
                 Database.CleanupOldAttempts(TimeSpan.FromHours(48));
 
                 // Clean in-memory cache
-                var cutoffTime = DateTime.Now.AddHours(-48);
+                var cutoffTime = DateTime.UtcNow.AddHours(-48);
                 foreach (var queue in _attempts.Values)
                 {
                     while (queue.TryPeek(out DateTime oldest) && oldest <= cutoffTime)

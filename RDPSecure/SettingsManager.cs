@@ -4,8 +4,7 @@ namespace RDPSecure
 {
     public static class SettingsManager
     {
-        private static readonly Lazy<DatabaseManager> _db = new(() => new DatabaseManager());
-        private static DatabaseManager Database => _db.Value;
+        private static DatabaseManager Database => DatabaseProvider.Instance;
 
         public static AppSettings LoadSettings()
         {
