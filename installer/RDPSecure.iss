@@ -23,7 +23,7 @@ UninstallDisplayIcon={app}\{#AppName}.ico
 ; Optional tasks shown on the install page
 ; ---------------------------------------------------------------------------
 [Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupOffset: 8; Flags: unchecked
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; Flags: unchecked
 
 ; ---------------------------------------------------------------------------
 ; Directories
