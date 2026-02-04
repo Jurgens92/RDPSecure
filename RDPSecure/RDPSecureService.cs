@@ -83,13 +83,38 @@ namespace RDPSecure
                 var directoryInfo = new DirectoryInfo(path);
                 var directorySecurity = directoryInfo.GetAccessControl();
 
-                // Add full control for SYSTEM and Administrators
-                var everyone = new System.Security.Principal.SecurityIdentifier(
-                    System.Security.Principal.WellKnownSidType.WorldSid, null);
-
+                // Add full control for SYSTEM (required for service operation)
+                var systemSid = new System.Security.Principal.SecurityIdentifier(
+                    System.Security.Principal.WellKnownSidType.LocalSystemSid, null);
                 directorySecurity.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
-                    everyone,
+                    systemSid,
                     System.Security.AccessControl.FileSystemRights.FullControl,
+                    System.Security.AccessControl.InheritanceFlags.ContainerInherit |
+                    System.Security.AccessControl.InheritanceFlags.ObjectInherit,
+                    System.Security.AccessControl.PropagationFlags.None,
+                    System.Security.AccessControl.AccessControlType.Allow));
+
+                // Add full control for Administrators
+                var adminsSid = new System.Security.Principal.SecurityIdentifier(
+                    System.Security.Principal.WellKnownSidType.BuiltinAdministratorsSid, null);
+                directorySecurity.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
+                    adminsSid,
+                    System.Security.AccessControl.FileSystemRights.FullControl,
+                    System.Security.AccessControl.InheritanceFlags.ContainerInherit |
+                    System.Security.AccessControl.InheritanceFlags.ObjectInherit,
+                    System.Security.AccessControl.PropagationFlags.None,
+                    System.Security.AccessControl.AccessControlType.Allow));
+
+                // Add read/write for authenticated users (allows GUI app to work when run as admin)
+                var authenticatedUsersSid = new System.Security.Principal.SecurityIdentifier(
+                    System.Security.Principal.WellKnownSidType.AuthenticatedUserSid, null);
+                directorySecurity.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
+                    authenticatedUsersSid,
+                    System.Security.AccessControl.FileSystemRights.Read |
+                    System.Security.AccessControl.FileSystemRights.Write |
+                    System.Security.AccessControl.FileSystemRights.CreateFiles |
+                    System.Security.AccessControl.FileSystemRights.CreateDirectories |
+                    System.Security.AccessControl.FileSystemRights.Delete,
                     System.Security.AccessControl.InheritanceFlags.ContainerInherit |
                     System.Security.AccessControl.InheritanceFlags.ObjectInherit,
                     System.Security.AccessControl.PropagationFlags.None,

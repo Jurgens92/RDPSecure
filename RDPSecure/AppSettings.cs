@@ -79,12 +79,35 @@ namespace RDPSecure
                     return SubnetUtils.IsIPInSubnet(checkIP, subnetInfo);
                 }
 
-                return string.Equals(IPAddress, ipToCheck, StringComparison.OrdinalIgnoreCase);
+                // For single IP comparison, normalize both addresses to handle IPv6 variations
+                System.Net.IPAddress? entryIP;
+                if (!System.Net.IPAddress.TryParse(IPAddress, out entryIP))
+                    return false;
+
+                // Compare normalized string representations (handles IPv6 case differences and compression)
+                return entryIP.Equals(checkIP);
             }
             catch
             {
                 return false;
             }
+        }
+
+        // Helper method to get the display address for UI purposes
+        public string GetDisplayAddress()
+        {
+            if (IsSubnet && !string.IsNullOrEmpty(NetworkAddress) && PrefixLength.HasValue)
+            {
+                return $"{NetworkAddress}/{PrefixLength}";
+            }
+            return IPAddress;
+        }
+
+        // Helper method to check if this entry matches a display address (for removal)
+        public bool MatchesDisplayAddress(string displayAddress)
+        {
+            return string.Equals(GetDisplayAddress(), displayAddress, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(IPAddress, displayAddress, StringComparison.OrdinalIgnoreCase);
         }
 
         // Helper method to set subnet information
