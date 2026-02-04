@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using RDPSecure.Logging;
+using RDPSecure.Models;
 
 namespace RDPSecure.Data
 {
@@ -258,11 +259,14 @@ namespace RDPSecure.Data
 
         #region Whitelisted/Blacklisted IPs
 
-        private void AddWhitelistedIP(IPEntry ip)
+        /// <summary>
+        /// Adds an IP entry to the specified table (WhitelistedIPs or BlacklistedIPs).
+        /// </summary>
+        private void AddIPEntry(IPEntry ip, string tableName)
         {
             using var command = _connection.CreateCommand();
-            command.CommandText = @"
-                INSERT INTO WhitelistedIPs (IPAddress, Type, AddedDate, IsEnabled, Notes, IsSubnet, PrefixLength, NetworkAddress, IsIPv6)
+            command.CommandText = $@"
+                INSERT INTO {tableName} (IPAddress, Type, AddedDate, IsEnabled, Notes, IsSubnet, PrefixLength, NetworkAddress, IsIPv6)
                 VALUES (@ip, @type, @added, @enabled, @notes, @subnet, @prefix, @network, @ipv6)
             ";
             command.Parameters.AddWithValue("@ip", ip.IPAddress);
@@ -277,30 +281,18 @@ namespace RDPSecure.Data
             command.ExecuteNonQuery();
         }
 
-        private void AddBlacklistedIP(IPEntry ip)
-        {
-            using var command = _connection.CreateCommand();
-            command.CommandText = @"
-                INSERT INTO BlacklistedIPs (IPAddress, Type, AddedDate, IsEnabled, Notes, IsSubnet, PrefixLength, NetworkAddress, IsIPv6)
-                VALUES (@ip, @type, @added, @enabled, @notes, @subnet, @prefix, @network, @ipv6)
-            ";
-            command.Parameters.AddWithValue("@ip", ip.IPAddress);
-            command.Parameters.AddWithValue("@type", ip.Type);
-            command.Parameters.AddWithValue("@added", ip.AddedDate.ToString("O"));
-            command.Parameters.AddWithValue("@enabled", ip.IsEnabled ? 1 : 0);
-            command.Parameters.AddWithValue("@notes", ip.Notes ?? "");
-            command.Parameters.AddWithValue("@subnet", ip.IsSubnet ? 1 : 0);
-            command.Parameters.AddWithValue("@prefix", ip.PrefixLength.HasValue ? ip.PrefixLength.Value : DBNull.Value);
-            command.Parameters.AddWithValue("@network", ip.NetworkAddress ?? (object)DBNull.Value);
-            command.Parameters.AddWithValue("@ipv6", ip.IsIPv6 ? 1 : 0);
-            command.ExecuteNonQuery();
-        }
+        private void AddWhitelistedIP(IPEntry ip) => AddIPEntry(ip, "WhitelistedIPs");
 
-        private List<IPEntry> GetWhitelistedIPs()
+        private void AddBlacklistedIP(IPEntry ip) => AddIPEntry(ip, "BlacklistedIPs");
+
+        /// <summary>
+        /// Gets IP entries from the specified table.
+        /// </summary>
+        private List<IPEntry> GetIPEntries(string tableName)
         {
             var list = new List<IPEntry>();
             using var command = _connection.CreateCommand();
-            command.CommandText = "SELECT * FROM WhitelistedIPs";
+            command.CommandText = $"SELECT * FROM {tableName}";
             using var reader = command.ExecuteReader();
             while (reader.Read())
             {
@@ -309,18 +301,9 @@ namespace RDPSecure.Data
             return list;
         }
 
-        private List<IPEntry> GetBlacklistedIPs()
-        {
-            var list = new List<IPEntry>();
-            using var command = _connection.CreateCommand();
-            command.CommandText = "SELECT * FROM BlacklistedIPs";
-            using var reader = command.ExecuteReader();
-            while (reader.Read())
-            {
-                list.Add(ReadIPEntry(reader));
-            }
-            return list;
-        }
+        private List<IPEntry> GetWhitelistedIPs() => GetIPEntries("WhitelistedIPs");
+
+        private List<IPEntry> GetBlacklistedIPs() => GetIPEntries("BlacklistedIPs");
 
         private static IPEntry ReadIPEntry(SqliteDataReader reader)
         {

@@ -1,5 +1,6 @@
 using RDPSecure.Data;
 using RDPSecure.Logging;
+using RDPSecure.Models;
 using RDPSecure.Services;
 
 namespace RDPSecure;
@@ -94,32 +95,6 @@ public partial class MainForm : Form
                 MessageBoxIcon.Error);
             throw;
         }
-    }
-
-
-    private void InitializeAttemptTracking()
-    {
-        // Update every 10 seconds as a backup
-        _attemptsUpdateTimer.Interval = 10000;
-
-        _attemptsUpdateTimer.Tick += (s, e) =>
-        {
-            try
-            {
-                UpdateAttemptsDisplay();
-            }
-            catch (Exception ex)
-            {
-                logger.LogError("Error updating attempts count", ex);
-            }
-        };
-        _attemptsUpdateTimer.Start();
-
-        // Subscribe to real-time login attempt events
-        monitorService.LoginAttemptDetected += OnLoginAttemptDetected;
-
-        // Initial update
-        UpdateAttemptsDisplay();
     }
 
 
