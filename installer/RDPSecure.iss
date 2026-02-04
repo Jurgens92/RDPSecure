@@ -29,9 +29,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; Flags: unchecked
 ; Directories
 ; ---------------------------------------------------------------------------
 [Dirs]
-; Data directory — SYSTEM and Admins get full control here;
-; the service's EnsureDirectoryPermissions() adds user-level ACLs on first run.
-Name: "{commonappdata}\{#AppName}"; Permissions: systemfull,adminfull
+; Data directory — the service's EnsureDirectoryPermissions() sets
+; SYSTEM/Admin/User ACLs on first run, so no Permissions needed here.
+Name: "{commonappdata}\{#AppName}"
 
 ; ---------------------------------------------------------------------------
 ; Files — sourced from the dotnet publish output produced by build.ps1
