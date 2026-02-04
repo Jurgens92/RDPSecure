@@ -58,5 +58,5 @@ Filename: "sc.exe"; Parameters: "start {#AppServiceName}"; Description: "Startin
 ; Pre-uninstall — stop and remove the service before files are deleted
 ; ---------------------------------------------------------------------------
 [UninstallRun]
-Filename: "sc.exe"; Parameters: "stop {#AppServiceName}"; Description: "Stopping {#AppName} service..."
-Filename: "sc.exe"; Parameters: "delete {#AppServiceName}"; Description: "Removing {#AppName} service..."
+Filename: "sc.exe"; Parameters: "stop {#AppServiceName}"
+Filename: "sc.exe"; Parameters: "delete {#AppServiceName}"
