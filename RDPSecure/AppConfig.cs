@@ -14,8 +14,7 @@ namespace RDPSecure
         );
 
         public static string LogsPath => Path.Combine(AppDataPath, "Logs");
-        public static string SettingsPath => Path.Combine(AppDataPath, "settings.json");
-        public static string AttemptsPath => Path.Combine(AppDataPath, "attempts.json"); 
+        public static string DatabasePath => Path.Combine(AppDataPath, "rdpsecure.db"); 
 
         public static void EnsureDirectoriesExist()
         {

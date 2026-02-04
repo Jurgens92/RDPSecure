@@ -1,40 +1,17 @@
-﻿using Newtonsoft.Json;
-using System;
-using System.IO;
+using RDPSecure.Data;
 
 namespace RDPSecure
 {
     public static class SettingsManager
     {
-        private static readonly string AppDataPath = Path.Combine(
-       Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-       "RDPSecure"
-       );
-
-        private static readonly string SettingsPath = Path.Combine(AppDataPath, "settings.json");
-        private static readonly string BannedIPsPath = Path.Combine(AppDataPath, "banned_ips.json");
-        private static readonly object _fileLock = new object();
+        private static readonly Lazy<DatabaseManager> _db = new(() => new DatabaseManager());
+        private static DatabaseManager Database => _db.Value;
 
         public static AppSettings LoadSettings()
         {
             try
             {
-                EnsureDirectoryExists();
-
-                if (File.Exists(SettingsPath))
-                {
-                    string json = File.ReadAllText(SettingsPath);
-                    var settings = JsonConvert.DeserializeObject<AppSettings>(json);
-                    if (settings != null)
-                    {
-                        return settings;
-                    }
-                }
-
-                // If file doesn't exist or is invalid, create default settings
-                var defaultSettings = new AppSettings();
-                SaveSettings(defaultSettings);
-                return defaultSettings;
+                return Database.LoadSettings();
             }
             catch (Exception ex)
             {
@@ -52,12 +29,7 @@ namespace RDPSecure
         {
             try
             {
-                lock (_fileLock)
-                {
-                    EnsureDirectoryExists();
-                    string json = JsonConvert.SerializeObject(settings, Formatting.Indented);
-                    File.WriteAllText(SettingsPath, json);
-                }
+                Database.SaveSettings(settings);
             }
             catch (Exception ex)
             {
@@ -70,49 +42,17 @@ namespace RDPSecure
             }
         }
 
-        // Add methods for banned IPs persistence
         public static void SaveBannedIPs(Dictionary<string, BanInfo> bannedIPs)
         {
             try
             {
-                lock (_fileLock)
-                {
-                    int retryCount = 0;
-                    const int maxRetries = 3;
-                    const int delayMs = 500;
-
-                    while (retryCount < maxRetries)
-                    {
-                        try
-                        {
-                            EnsureDirectoryExists();
-                            string json = JsonConvert.SerializeObject(bannedIPs, Formatting.Indented);
-                            File.WriteAllText(BannedIPsPath, json);
-                            return; // Success, exit the method
-                        }
-                        catch (IOException ex) when (retryCount < maxRetries - 1)
-                        {
-                            retryCount++;
-                            // Log the retry attempt
-                            File.AppendAllText(
-                                Path.Combine(AppDataPath, "error.log"),
-                                $"{DateTime.Now}: Retry {retryCount}/{maxRetries} saving banned IPs. Error: {ex.Message}\n"
-                            );
-                            Thread.Sleep(delayMs); // Wait before retrying
-                        }
-                    }
-
-                    // All retries failed
-                    throw new IOException($"Unable to save banned IPs after {maxRetries} attempts. File may be locked.");
-                }
+                Database.SaveBannedIPs(bannedIPs);
             }
             catch (Exception ex)
             {
                 // Log the error but don't show message box as this might be called from a background thread
-                File.AppendAllText(
-                    Path.Combine(AppDataPath, "error.log"),
-                    $"{DateTime.Now}: Error saving banned IPs: {ex.Message}\n"
-                );
+                var logPath = Path.Combine(AppConfig.AppDataPath, "error.log");
+                File.AppendAllText(logPath, $"{DateTime.Now}: Error saving banned IPs: {ex.Message}\n");
             }
         }
 
@@ -120,15 +60,7 @@ namespace RDPSecure
         {
             try
             {
-                lock (_fileLock)
-                {
-                    if (File.Exists(BannedIPsPath))
-                    {
-                        string json = File.ReadAllText(BannedIPsPath);
-                        var bannedIPs = JsonConvert.DeserializeObject<Dictionary<string, BanInfo>>(json);
-                        return bannedIPs ?? new Dictionary<string, BanInfo>(StringComparer.OrdinalIgnoreCase);
-                    }
-                }
+                return Database.LoadBannedIPs();
             }
             catch (Exception ex)
             {
@@ -138,15 +70,7 @@ namespace RDPSecure
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning
                 );
-            }
-            return new Dictionary<string, BanInfo>(StringComparer.OrdinalIgnoreCase);
-        }
-
-        private static void EnsureDirectoryExists()
-        {
-            if (!Directory.Exists(AppDataPath))
-            {
-                Directory.CreateDirectory(AppDataPath);
+                return new Dictionary<string, BanInfo>(StringComparer.OrdinalIgnoreCase);
             }
         }
     }

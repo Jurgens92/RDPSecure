@@ -20,7 +20,7 @@ namespace RDPSecure.Services
         private const string FIREWALL_RULE_NAME = "RDPSecure-Blocked-IPs";
         private AppSettings _settings;
         private readonly object _settingsLock = new object();
-        private readonly LoginAttemptsManager _attemptsManager;
+        private LoginAttemptsManager _attemptsManager;
         private readonly Dictionary<string, BanInfo> _bannedIPs;
         private bool _isMonitoring;
         private readonly EventLog _eventLog;
@@ -169,7 +169,6 @@ namespace RDPSecure.Services
                 _logger = new SecurityLogger();
 
                 _settings = settings;
-                //_loginAttempts = new Dictionary<string, List<DateTime>>(StringComparer.OrdinalIgnoreCase);
                 _bannedIPs = new Dictionary<string, BanInfo>(StringComparer.OrdinalIgnoreCase);
                
                 // Initialize the attempts manager
@@ -416,20 +415,8 @@ namespace RDPSecure.Services
             {
                 _logger.LogInformation($"Processing login attempt from IP: {ipAddress}");
 
-                // Record the attempt
+                // Record the attempt first
                 _attemptsManager.AddAttempt(ipAddress, DateTime.Now);
-
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await _attemptsManager.SaveAttemptsAsync();
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError($"Error saving attempts in background: {ex.Message}");
-                    }
-                });
 
                 // Always raise the LoginAttemptDetected event, even for whitelisted IPs
                 LoginAttemptDetected?.Invoke(this, new LoginAttemptEventArgs
@@ -437,9 +424,8 @@ namespace RDPSecure.Services
                     IPAddress = ipAddress,
                     Timestamp = DateTime.Now
                 });
-               
 
-                // Check whitelist after raising the event
+                // Check whitelist - allow but still track the attempt
                 if (IsWhitelisted(ipAddress))
                 {
                     _logger.LogInformation($"Login attempt from whitelisted IP: {ipAddress} - allowing");
@@ -452,11 +438,6 @@ namespace RDPSecure.Services
                     if (DateTime.Now < banInfo.ExpiryTime)
                     {
                         _logger.LogInformation($"Blocked attempt from banned IP: {ipAddress}");
-                        LoginAttemptDetected?.Invoke(this, new LoginAttemptEventArgs
-                        {
-                            IPAddress = ipAddress,
-                            Timestamp = DateTime.Now
-                        });
                         return;
                     }
 
@@ -465,9 +446,6 @@ namespace RDPSecure.Services
                     UpdateFirewallRule();
                 }
 
-                // Record the attempt
-                _attemptsManager.AddAttempt(ipAddress, DateTime.Now);
-
                 // Get current count within time window
                 int recentAttempts = _attemptsManager.GetRecentAttemptCount(ipAddress);
 
@@ -475,13 +453,6 @@ namespace RDPSecure.Services
                     $"IP: {ipAddress} - Attempt {recentAttempts} of {_settings.MaxAttempts} allowed " +
                     $"(Window: {_settings.TimeWindow} minutes)"
                 );
-
-                // Raise the LoginAttemptDetected event
-                LoginAttemptDetected?.Invoke(this, new LoginAttemptEventArgs
-                {
-                    IPAddress = ipAddress,
-                    Timestamp = DateTime.Now
-                });
 
                 // Check if attempts exceed threshold
                 if (recentAttempts >= _settings.MaxAttempts)
@@ -763,7 +734,7 @@ namespace RDPSecure.Services
                     var newManager = new LoginAttemptsManager(_logger, newSettings.TimeWindow);
 
                     // Update the field
-                    //_attemptsManager = newManager;
+                    _attemptsManager = newManager;
 
                     // Dispose old manager
                     oldManager.Dispose();
