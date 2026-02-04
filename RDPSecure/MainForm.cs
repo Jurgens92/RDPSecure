@@ -58,9 +58,11 @@ public partial class MainForm : Form
             // Subscribe to events
             monitorService.LoginAttemptDetected += OnLoginAttemptDetected;
             monitorService.IPBanned += OnIPBanned;
-            // Initialize update manager
+
+            // Initialize update manager - uses GitHub Releases API
             _updateManager = new UpdateManager(
-                "https://raw.githubusercontent.com/jurgens92/RDPSecureUpdates/main",  // Your update server URL
+                "Jurgens92",      // GitHub owner
+                "RDPSecure",      // GitHub repo
                 Program.VERSION,
                 logger
             );
