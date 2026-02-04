@@ -5,85 +5,62 @@
 #define AppServiceName "RDPSecure"
 
 ; ---------------------------------------------------------------------------
-; General settings
+; Setup directives
 ; ---------------------------------------------------------------------------
-[Info]
-Name={#AppName}
-Version={#AppVersion}
-Publisher={#AppPublisher}
+[Setup]
+AppName={#AppName}
+AppVersion={#AppVersion}
+AppPublisher={#AppPublisher}
+; Unique ID — keeps upgrades clean (same ID = replace previous install)
+AppId={{B3A2C1D4-5E6F-7890-ABCD-EF1234567890}}
+DefaultDirName={autopf}\{#AppName}
+DefaultGroupName={#AppName}
+OutputBaseFileName={#AppName}-{#AppVersion}
+OutputDir=.\Output
+SetupIcon=.\publish\{#AppName}.ico
+UninstallDisplayIcon={app}\{#AppName}.ico
+; Only support 64-bit Windows (matches the win-x64 publish target)
+ArchitecturesSupported=x64
+ArchitecturesAllowed=x64
 
+; ---------------------------------------------------------------------------
+; Optional tasks shown on the install page
+; ---------------------------------------------------------------------------
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupOffset: 8; Flags: unchecked
-Name: "startmenupin"; Description: "Pin to Start Menu"; GroupOffset: 8; Flags: unchecked
 
 ; ---------------------------------------------------------------------------
 ; Directories
 ; ---------------------------------------------------------------------------
 [Dirs]
-Name: "{autopf}\{#AppName}"; Permissions: admin:adminsonly
-Name: "{commonappdata}\{#AppName}"; Permissions: system:systemfull,admin:adminfull,users:userreadexec
+; Data directory — SYSTEM and Admins get full control here;
+; the service's EnsureDirectoryPermissions() adds user-level ACLs on first run.
+Name: "{commonappdata}\{#AppName}"; Permissions: system:systemfull,admin:adminfull
 
 ; ---------------------------------------------------------------------------
 ; Files — sourced from the dotnet publish output produced by build.ps1
 ; ---------------------------------------------------------------------------
 [Files]
-; Main application files
-Source: "..\publish\*"; DestDir: "{autopf}\{#AppName}"; Flags: recursesubdirs createemptydirs
+Source: ".\publish\*"; DestDir: "{app}"; Flags: recursesubdirs createemptydirs
 
 ; ---------------------------------------------------------------------------
 ; Icons / shortcuts
 ; ---------------------------------------------------------------------------
 [Icons]
-Name: "{autoprograms}\{#AppName}"; Filename: "{autopf}\{#AppName}\{#AppExeName}"; IconFilename: "{autopf}\{#AppName}\{#AppName}.ico"; Comment: "Monitor and protect RDP connections"
-Name: "{userdesktop}\{#AppName}"; Filename: "{autopf}\{#AppName}\{#AppExeName}"; IconFilename: "{autopf}\{#AppName}\{#AppName}.ico"; Tasks: desktopicon
-Name: "{autoprograms}\{#AppName}\Uninstall {#AppName}"; Filename: "{uninstallexe}"; Parameters: "/SILENT"; Comment: "Remove {#AppName}"
+Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\{#AppName}.ico"; Comment: "Monitor and protect RDP connections"
+Name: "{userdesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\{#AppName}.ico"; Tasks: desktopicon
 
 ; ---------------------------------------------------------------------------
-; Pascal script — handles service registration on install and cleanup on uninstall
+; Post-install — register and start the Windows service
 ; ---------------------------------------------------------------------------
-[Code]
+[Run]
+Filename: "sc.exe"; Parameters: "create {#AppServiceName} binPath= ""{app}\{#AppExeName}"" start= auto DisplayName= ""{#AppName}"""; Description: "Registering {#AppName} service..."
+Filename: "sc.exe"; Parameters: "description {#AppServiceName} ""Monitors and protects RDP connections from brute force attacks"""; Description: "Configuring {#AppName} service..."
+Filename: "sc.exe"; Parameters: "start {#AppServiceName}"; Description: "Starting {#AppName} service..."
 
-// -----------------------------------------------------------------------
-// Install: register the Windows service after files are in place
-// -----------------------------------------------------------------------
-procedure AfterInstall;
-var
-  RetVal: Longint;
-begin
-  // Install the service (auto-start)
-  RetVal := Shell('sc.exe',
-    'create {#AppServiceName} binPath= "{autopf}\{#AppName}\{#AppExeName}" start= auto DisplayName= "{#AppName}"',
-    '', SW_HIDE, True);
-
-  // Set the service description
-  Shell('sc.exe',
-    'description {#AppServiceName} "Monitors and protects RDP connections from brute force attacks"',
-    '', SW_HIDE, True);
-
-  // Start the service
-  Shell('sc.exe',
-    'start {#AppServiceName}',
-    '', SW_HIDE, True);
-end;
-
-// -----------------------------------------------------------------------
-// Uninstall: stop and delete the service before files are removed
-// -----------------------------------------------------------------------
-function NeedReboot: Boolean;
-begin
-  Result := False;
-end;
-
-procedure CurUninstallStepOnChange(CurUninstallStep: TUninstallStep);
-begin
-  if CurUninstallStep = usPostDelete then begin
-    // Stop the service
-    Shell('sc.exe',
-      'stop {#AppServiceName}',
-      '', SW_HIDE, True);
-    // Delete the service
-    Shell('sc.exe',
-      'delete {#AppServiceName}',
-      '', SW_HIDE, True);
-  end;
-end;
+; ---------------------------------------------------------------------------
+; Pre-uninstall — stop and remove the service before files are deleted
+; ---------------------------------------------------------------------------
+[UninstallRun]
+Filename: "sc.exe"; Parameters: "stop {#AppServiceName}"; Description: "Stopping {#AppName} service..."
+Filename: "sc.exe"; Parameters: "delete {#AppServiceName}"; Description: "Removing {#AppName} service..."
