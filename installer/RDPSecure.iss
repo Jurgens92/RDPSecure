@@ -37,7 +37,7 @@ Name: "{commonappdata}\{#AppName}"
 ; Files — sourced from the dotnet publish output produced by build.ps1
 ; ---------------------------------------------------------------------------
 [Files]
-Source: ".\publish\*"; DestDir: "{app}"; Flags: recursesubdirs createemptydirs
+Source: ".\publish\*"; DestDir: "{app}"; Flags: recursesubdirs
 
 ; ---------------------------------------------------------------------------
 ; Icons / shortcuts
