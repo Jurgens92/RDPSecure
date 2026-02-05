@@ -9,7 +9,7 @@ namespace RDPSecure.Data
 
         private readonly ConcurrentDictionary<string, ConcurrentQueue<DateTime>> _attempts;
         private readonly ISecurityLogger _logger;
-        private readonly int _timeWindowMinutes;
+        private int _timeWindowMinutes;
         private readonly System.Threading.Timer _cleanupTimer;
         private volatile bool _disposed;
 
@@ -29,6 +29,15 @@ namespace RDPSecure.Data
                 TimeSpan.FromMinutes(15),
                 TimeSpan.FromMinutes(15)
             );
+        }
+
+        /// <summary>
+        /// Updates the time window used for counting recent attempts.
+        /// Call this when settings change.
+        /// </summary>
+        public void UpdateTimeWindow(int timeWindowMinutes)
+        {
+            _timeWindowMinutes = timeWindowMinutes;
         }
 
         public Dictionary<string, List<DateTime>> GetAllAttempts()

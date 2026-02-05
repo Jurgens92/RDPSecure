@@ -83,6 +83,8 @@ namespace RDPSecure.Services
         {
             _ipListService.RefreshSettings();
             _settings = _ipListService.GetSettings();
+            // Update the time window in LoginAttemptsManager so ban threshold uses new value
+            _attemptsManager.UpdateTimeWindow(_settings.TimeWindow);
             _logger.LogInformation("Settings refreshed");
         }
 

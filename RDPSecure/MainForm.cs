@@ -43,28 +43,26 @@ public partial class MainForm : Form
 
             _attemptsUpdateTimer = new System.Windows.Forms.Timer
             {
-                Interval = 30000  // Update every 30 seconds
+                Interval = 5000  // Update every 5 seconds for responsive UI
             };
             _attemptsUpdateTimer.Tick += (s, e) =>
             {
                 try
                 {
-                    // Update attempts count
+                    // Reload data from database to pick up changes from service
+                    monitorService.ReloadAttempts();
+                    monitorService.CleanupExpiredBans();
+
+                    // Update UI
                     lblRecentAttemptsCount.Text = monitorService.GetRecentAttemptsCount().ToString();
+                    UpdateBannedIPsDisplay();
 
                     // Check if service state changed and adjust monitoring accordingly
                     CheckServiceStateAndAdjustMonitoring();
-
-                    // Refresh banned IPs display to pick up changes from service
-                    if (_lastKnownServiceRunning)
-                    {
-                        monitorService.CleanupExpiredBans();
-                        UpdateBannedIPsDisplay();
-                    }
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError("Error updating attempts count", ex);
+                    logger.LogError("Error updating UI", ex);
                 }
             };
             _attemptsUpdateTimer.Start();
@@ -619,6 +617,11 @@ public partial class MainForm : Form
                 }
 
                 _lastKnownServiceRunning = serviceRunning;
+
+                // Force immediate UI refresh after state change
+                monitorService.ReloadAttempts();
+                monitorService.CleanupExpiredBans();
+                UpdateBannedIPsDisplay();
             }
         }
         catch (Exception ex)
