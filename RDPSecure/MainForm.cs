@@ -14,6 +14,8 @@ public partial class MainForm : Form
     private readonly RDPMonitorService monitorService;
     private readonly SecurityLogger logger;
     private readonly System.Windows.Forms.Timer _attemptsUpdateTimer;
+    private bool _lastKnownServiceRunning;
+    private bool _isMonitoringActive;
 
 
     public MainForm()
@@ -47,7 +49,18 @@ public partial class MainForm : Form
             {
                 try
                 {
+                    // Update attempts count
                     lblRecentAttemptsCount.Text = monitorService.GetRecentAttemptsCount().ToString();
+
+                    // Check if service state changed and adjust monitoring accordingly
+                    CheckServiceStateAndAdjustMonitoring();
+
+                    // Refresh banned IPs display to pick up changes from service
+                    if (_lastKnownServiceRunning)
+                    {
+                        monitorService.CleanupExpiredBans();
+                        UpdateBannedIPsDisplay();
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -83,8 +96,21 @@ public partial class MainForm : Form
             UpdateUIFromSettings();
             UpdateBannedIPsDisplay();
 
-            // Start monitoring
-            monitorService.StartMonitoring();
+            // Only start event log monitoring if the Windows service is NOT running.
+            // If the service is running, it will handle event log monitoring.
+            // This prevents double-logging of login attempts.
+            _lastKnownServiceRunning = Program.IsServiceRunning();
+            if (!_lastKnownServiceRunning)
+            {
+                monitorService.StartMonitoring();
+                _isMonitoringActive = true;
+                logger.LogInformation("App started monitoring (service not running)");
+            }
+            else
+            {
+                _isMonitoringActive = false;
+                logger.LogInformation("App started in display-only mode (service is running)");
+            }
 
         }
         catch (Exception ex)
@@ -560,6 +586,44 @@ public partial class MainForm : Form
         catch (Exception ex)
         {
             logger.LogError("Error updating attempts display", ex);
+        }
+    }
+
+    /// <summary>
+    /// Checks if the Windows service state changed and adjusts event monitoring accordingly.
+    /// If the service started, stop app monitoring to prevent double-logging.
+    /// If the service stopped, start app monitoring to continue protection.
+    /// </summary>
+    private void CheckServiceStateAndAdjustMonitoring()
+    {
+        try
+        {
+            bool serviceRunning = Program.IsServiceRunning();
+
+            // Service state changed
+            if (serviceRunning != _lastKnownServiceRunning)
+            {
+                if (serviceRunning && _isMonitoringActive)
+                {
+                    // Service started - stop app monitoring to prevent duplicates
+                    monitorService.StopMonitoring();
+                    _isMonitoringActive = false;
+                    logger.LogInformation("Service started - app switched to display-only mode");
+                }
+                else if (!serviceRunning && !_isMonitoringActive)
+                {
+                    // Service stopped - start app monitoring to maintain protection
+                    monitorService.StartMonitoring();
+                    _isMonitoringActive = true;
+                    logger.LogInformation("Service stopped - app started monitoring");
+                }
+
+                _lastKnownServiceRunning = serviceRunning;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError("Error checking service state", ex);
         }
     }
 
