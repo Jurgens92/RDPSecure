@@ -90,6 +90,21 @@ public static class Program
         return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
     }
 
+    // Helper method to check if the RDPSecure service is running
+    public static bool IsServiceRunning()
+    {
+        try
+        {
+            using var controller = new System.ServiceProcess.ServiceController("RDPSecure");
+            return controller.Status == System.ServiceProcess.ServiceControllerStatus.Running;
+        }
+        catch
+        {
+            // Service not installed or other error - assume not running
+            return false;
+        }
+    }
+
     // Method to install the service
     public static void InstallService()
     {

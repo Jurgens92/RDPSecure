@@ -550,8 +550,9 @@ namespace RDPSecure.Services
                 // Remove from banned IPs dictionary (thread-safe)
                 if (_bannedIPs.TryRemove(ipAddress, out _))
                 {
-                    // Remove from login attempts tracking
-                    _attemptsManager.RemoveAttempts(ipAddress);
+                    // Note: We do NOT remove login attempts here - they should be preserved
+                    // for audit/history purposes. Login attempts are automatically cleaned up
+                    // after 48 hours by the cleanup timer.
 
                     // Update firewall and save changes
                     _firewallService.UpdateFirewallRules(_bannedIPs);
