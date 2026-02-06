@@ -16,6 +16,23 @@ namespace RDPSecure.Data
             AppConfig.EnsureDirectoriesExist();
             _connection = new SqliteConnection($"Data Source={DbPath}");
             _connection.Open();
+
+            // Enable WAL mode for concurrent read/write access across processes
+            // (service + GUI app can both access the DB simultaneously)
+            using (var walCmd = _connection.CreateCommand())
+            {
+                walCmd.CommandText = "PRAGMA journal_mode=WAL";
+                walCmd.ExecuteNonQuery();
+            }
+
+            // Set busy timeout so writers retry instead of failing immediately
+            // when another process holds the lock (5 seconds)
+            using (var busyCmd = _connection.CreateCommand())
+            {
+                busyCmd.CommandText = "PRAGMA busy_timeout=5000";
+                busyCmd.ExecuteNonQuery();
+            }
+
             InitializeDatabase();
         }
 

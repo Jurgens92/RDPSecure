@@ -52,7 +52,19 @@ public partial class MainForm : Form
                 {
                     // Reload data from database to pick up changes from service
                     monitorService.ReloadAttempts();
-                    monitorService.CleanupExpiredBans();
+
+                    if (_isMonitoringActive)
+                    {
+                        // App is the active monitor: perform full cleanup with
+                        // firewall updates and DB writes
+                        monitorService.CleanupExpiredBans();
+                    }
+                    else
+                    {
+                        // Service is the active monitor: only read from DB for
+                        // display purposes, do NOT modify firewall or write bans
+                        monitorService.ReloadBansFromDatabase();
+                    }
 
                     // Update UI
                     lblRecentAttemptsCount.Text = monitorService.GetRecentAttemptsCount().ToString();

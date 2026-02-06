@@ -28,9 +28,10 @@ namespace RDPSecure.Services
         private readonly FirewallService _firewallService;
         private readonly IPListService _ipListService;
         private AppSettings _settings;
-        private LoginAttemptsManager _attemptsManager;
+        private volatile LoginAttemptsManager _attemptsManager;
         private readonly ConcurrentDictionary<string, BanInfo> _bannedIPs;
         private bool _isMonitoring;
+        private readonly object _settingsLock = new object();
         private readonly EventLog _eventLog;
         private readonly ISecurityLogger _logger;
 
@@ -332,7 +333,46 @@ namespace RDPSecure.Services
         }
 
         /// <summary>
-        /// Cleans up expired bans and syncs with persisted data.
+        /// Refreshes the in-memory ban list from the database (read-only).
+        /// Used by the GUI in display-only mode when the service handles cleanup.
+        /// </summary>
+        public void ReloadBansFromDatabase()
+        {
+            try
+            {
+                var savedBans = SettingsManager.LoadBannedIPs();
+                var now = DateTime.UtcNow;
+
+                // Sync from DB to in-memory (keeps the more recent ban for each IP)
+                foreach (var ban in savedBans)
+                {
+                    _bannedIPs.AddOrUpdate(
+                        ban.Key,
+                        ban.Value,
+                        (key, existing) => ban.Value.BanTime > existing.BanTime ? ban.Value : existing
+                    );
+                }
+
+                // Remove expired from in-memory only (the service will handle DB cleanup)
+                var expiredKeys = _bannedIPs
+                    .Where(kvp => now >= kvp.Value.ExpiryTime)
+                    .Select(kvp => kvp.Key)
+                    .ToList();
+
+                foreach (var key in expiredKeys)
+                {
+                    _bannedIPs.TryRemove(key, out _);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Error reloading bans from database", ex);
+            }
+        }
+
+        /// <summary>
+        /// Cleans up expired bans, syncs with persisted data, and updates firewall rules.
+        /// Should only be called by the active monitor (service or app, not both).
         /// </summary>
         public void CleanupExpiredBans()
         {
@@ -374,9 +414,10 @@ namespace RDPSecure.Services
                     }
 
                     _logger.LogInformation($"Cleaned up {expiredKeys.Count} expired bans");
-                }
 
-                _firewallService.UpdateFirewallRules(_bannedIPs);
+                    // Only update firewall when bans actually changed
+                    _firewallService.UpdateFirewallRules(_bannedIPs);
+                }
             }
             catch (Exception ex)
             {
@@ -723,21 +764,29 @@ namespace RDPSecure.Services
                 _ipListService.RefreshSettings();
                 var newSettings = _ipListService.GetSettings();
 
-                // If time window changed, we need to reinitialize the attempts manager
+                // If time window changed, we need to reinitialize the attempts manager.
+                // Use lock to prevent other threads from using _attemptsManager during swap.
                 if (newSettings.TimeWindow != _settings.TimeWindow)
                 {
-                    var oldManager = _attemptsManager;
-                    // Create new manager with new time window
-                    var newManager = new LoginAttemptsManager(_logger, newSettings.TimeWindow);
+                    lock (_settingsLock)
+                    {
+                        var oldManager = _attemptsManager;
+                        // Create new manager with new time window
+                        var newManager = new LoginAttemptsManager(_logger, newSettings.TimeWindow);
 
-                    // Update the field
-                    _attemptsManager = newManager;
+                        // Update the volatile field (visible to other threads immediately)
+                        _attemptsManager = newManager;
+                        _settings = newSettings;
 
-                    // Dispose old manager
-                    oldManager.Dispose();
+                        // Dispose old manager after the swap is complete
+                        oldManager.Dispose();
+                    }
+                }
+                else
+                {
+                    _settings = newSettings;
                 }
 
-                _settings = newSettings;
                 _logger.LogInformation("Settings updated successfully");
             }
             catch (Exception ex)
