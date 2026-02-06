@@ -25,10 +25,11 @@ public partial class MainForm : Form
             InitializeComponent();
 
             // Set form and notification icons
+            // Note: Do NOT use 'using' here - the Icon must remain alive while the form uses it
             string iconPath = Path.Combine(Application.StartupPath, "shield.ico");
             if (File.Exists(iconPath))
             {
-                using var icon = new Icon(iconPath);
+                var icon = new Icon(iconPath);
                 this.Icon = icon;
                 notifyIconRDPSecure.Icon = icon;
             }
@@ -556,6 +557,7 @@ public partial class MainForm : Form
             _attemptsUpdateTimer?.Stop();
             _attemptsUpdateTimer?.Dispose();
             monitorService.StopMonitoring();
+            monitorService.Dispose();
         }
 
         base.OnFormClosing(e);

@@ -157,7 +157,14 @@ namespace RDPSecure
                 return subnet.PrefixLength == 128 ? 1 : -1; // -1 indicates "too large to count"
             }
 
-            return (int)Math.Pow(2, 32 - subnet.PrefixLength);
+            int hostBits = 32 - subnet.PrefixLength;
+            // Prefix lengths < 2 produce values that overflow int (2^31 and 2^32)
+            if (hostBits > 30)
+            {
+                return -1; // Too large to represent as int
+            }
+
+            return 1 << hostBits;
         }
     }
 }

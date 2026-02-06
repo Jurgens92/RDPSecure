@@ -31,7 +31,8 @@ namespace RDPSecure
 
             try
             {
-                using var process = new Process
+                // Check Logon audit policy
+                using (var process = new Process
                 {
                     StartInfo = new ProcessStartInfo
                     {
@@ -41,24 +42,36 @@ namespace RDPSecure
                         RedirectStandardOutput = true,
                         CreateNoWindow = true
                     }
-                };
+                })
+                {
+                    process.Start();
+                    string output = process.StandardOutput.ReadToEnd();
+                    process.WaitForExit();
 
-                process.Start();
-                string output = process.StandardOutput.ReadToEnd();
-                process.WaitForExit();
+                    status.LogonEnabled = output.Contains("Success and Failure");
+                    status.LogonStatus = ParseAuditStatus(output);
+                }
 
-                // Parse the output
-                status.LogonEnabled = output.Contains("Success and Failure");
-                status.LogonStatus = ParseAuditStatus(output);
+                // Check Other Logon/Logoff Events with a separate Process instance
+                using (var process2 = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "auditpol.exe",
+                        Arguments = "/get /subcategory:\"Other Logon/Logoff Events\" /r",
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        CreateNoWindow = true
+                    }
+                })
+                {
+                    process2.Start();
+                    string output = process2.StandardOutput.ReadToEnd();
+                    process2.WaitForExit();
 
-                // Check Other Logon/Logoff Events
-                process.StartInfo.Arguments = "/get /subcategory:\"Other Logon/Logoff Events\" /r";
-                process.Start();
-                output = process.StandardOutput.ReadToEnd();
-                process.WaitForExit();
-
-                status.OtherLogonEnabled = output.Contains("Success and Failure");
-                status.OtherLogonStatus = ParseAuditStatus(output);
+                    status.OtherLogonEnabled = output.Contains("Success and Failure");
+                    status.OtherLogonStatus = ParseAuditStatus(output);
+                }
             }
             catch (Exception ex)
             {

@@ -68,6 +68,9 @@ namespace RDPSecure
                 WriteToFile("Starting monitoring...");
                 _monitorService.StartMonitoring();
 
+                // Start the periodic state check timer for settings refresh and ban cleanup
+                _stateCheckTimer.Start();
+
                 WriteToFile("Service started successfully");
             }
             catch (Exception ex)

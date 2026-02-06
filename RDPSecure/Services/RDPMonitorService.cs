@@ -113,13 +113,13 @@ namespace RDPSecure.Services
                 var now = DateTime.UtcNow;
                 var banInfo = new BanInfo
                 {
-                    IPAddress = ipAddress,
                     BanTime = now,
                     Duration = duration,
                     ExpiryTime = now.Add(duration),
                     AttemptCount = 0,
                     Location = IsPrivateIP(ipAddress) ? "Private" : "Detecting..."
                 };
+                banInfo.SetIPAddress(ipAddress);
 
                 // Use ConcurrentDictionary's thread-safe operations
                 _bannedIPs[ipAddress] = banInfo;
@@ -286,13 +286,13 @@ namespace RDPSecure.Services
                 var now = DateTime.UtcNow;
                 var banInfo = new BanInfo
                 {
-                    IPAddress = ipAddress,
                     BanTime = now,
                     Duration = duration,
                     ExpiryTime = now.Add(duration),
                     AttemptCount = _attemptsManager.GetRecentAttemptCount(ipAddress),
                     Location = IsPrivateIP(ipAddress) ? "Private" : "Detecting..."
                 };
+                banInfo.SetIPAddress(ipAddress);
 
                 // Add the ban (thread-safe)
                 _bannedIPs[ipAddress] = banInfo;
@@ -461,13 +461,13 @@ namespace RDPSecure.Services
                         var duration = TimeSpan.FromDays(_settings.PublicIPBanDays);
                         var banInfo = new BanInfo
                         {
-                            IPAddress = ipAddress,
                             BanTime = now,
                             Duration = duration,
                             ExpiryTime = now.Add(duration),
                             AttemptCount = 1,
                             Location = IsPrivateIP(ipAddress) ? "Private" : "Detecting..."
                         };
+                        banInfo.SetIPAddress(ipAddress);
                         _bannedIPs[ipAddress] = banInfo;
                         SaveBannedIPsAndUpdateFirewall();
 
@@ -635,6 +635,26 @@ namespace RDPSecure.Services
         {
             try
             {
+                // Event 4625 contains a "Source Network Address:" field with the attacker's IP.
+                // We must target that specific field rather than matching the first IP in the
+                // message, which could be the target machine's IP or another unrelated address.
+                var sourceNetworkMatch = System.Text.RegularExpressions.Regex.Match(
+                    logMessage,
+                    @"Source Network Address:\s+(\S+)",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase
+                );
+
+                if (sourceNetworkMatch.Success)
+                {
+                    string candidate = sourceNetworkMatch.Groups[1].Value.Trim();
+                    // Validate the extracted value is actually an IP address
+                    if (candidate != "-" && IPAddress.TryParse(candidate, out var parsedIP))
+                    {
+                        return parsedIP.ToString();
+                    }
+                }
+
+                // Fallback: try to find IP addresses in the message (for non-standard formats)
                 // IPv4 pattern
                 var ipv4Match = System.Text.RegularExpressions.Regex.Match(
                     logMessage,
@@ -643,7 +663,11 @@ namespace RDPSecure.Services
 
                 if (ipv4Match.Success)
                 {
-                    return ipv4Match.Value;
+                    // Validate the matched string is actually a valid IP
+                    if (IPAddress.TryParse(ipv4Match.Value, out _))
+                    {
+                        return ipv4Match.Value;
+                    }
                 }
 
                 // IPv6 pattern (handles full, compressed, and mixed notations)
