@@ -781,9 +781,16 @@ namespace RDPSecure
 
                 try
                 {
-                    // Update status in settings
-                    var entry = currentSettings.WhitelistedIPs.First(w =>
-                        string.Equals(w.IPAddress, ip, StringComparison.OrdinalIgnoreCase));
+                    // Update status in settings - use MatchesDisplayAddress to handle
+                    // both single IPs and subnet entries (where IPAddress = "x.x.x.x/prefix")
+                    var entry = currentSettings.WhitelistedIPs.FirstOrDefault(w =>
+                        w.MatchesDisplayAddress(ip));
+
+                    if (entry == null)
+                    {
+                        logger.LogError($"Could not find whitelist entry for: {ip}");
+                        return;
+                    }
 
                     entry.IsEnabled = !currentlyEnabled;
 
@@ -954,24 +961,8 @@ namespace RDPSecure
                 _auditTimer.Dispose();
             }
 
-            if (DialogResult == DialogResult.OK)
-            {
-                try
-                {
-                    SaveSettings();
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError("Error saving settings on form close", ex);
-                    MessageBox.Show(
-                        $"Error saving settings: {ex.Message}",
-                        "Settings Error",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Error
-                    );
-                    e.Cancel = true;  // Prevent closing if save failed
-                }
-            }
+            // Note: Do NOT save settings here - btnOK_Click already saves before setting
+            // DialogResult = OK. Saving again would be redundant and could cause issues.
         }
 
         private void InitializeSystemTab()

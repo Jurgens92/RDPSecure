@@ -28,9 +28,10 @@ namespace RDPSecure.Services
         private readonly FirewallService _firewallService;
         private readonly IPListService _ipListService;
         private AppSettings _settings;
-        private LoginAttemptsManager _attemptsManager;
+        private volatile LoginAttemptsManager _attemptsManager;
         private readonly ConcurrentDictionary<string, BanInfo> _bannedIPs;
         private bool _isMonitoring;
+        private readonly object _settingsLock = new object();
         private readonly EventLog _eventLog;
         private readonly ISecurityLogger _logger;
 
@@ -113,13 +114,13 @@ namespace RDPSecure.Services
                 var now = DateTime.UtcNow;
                 var banInfo = new BanInfo
                 {
-                    IPAddress = ipAddress,
                     BanTime = now,
                     Duration = duration,
                     ExpiryTime = now.Add(duration),
                     AttemptCount = 0,
                     Location = IsPrivateIP(ipAddress) ? "Private" : "Detecting..."
                 };
+                banInfo.SetIPAddress(ipAddress);
 
                 // Use ConcurrentDictionary's thread-safe operations
                 _bannedIPs[ipAddress] = banInfo;
@@ -286,13 +287,13 @@ namespace RDPSecure.Services
                 var now = DateTime.UtcNow;
                 var banInfo = new BanInfo
                 {
-                    IPAddress = ipAddress,
                     BanTime = now,
                     Duration = duration,
                     ExpiryTime = now.Add(duration),
                     AttemptCount = _attemptsManager.GetRecentAttemptCount(ipAddress),
                     Location = IsPrivateIP(ipAddress) ? "Private" : "Detecting..."
                 };
+                banInfo.SetIPAddress(ipAddress);
 
                 // Add the ban (thread-safe)
                 _bannedIPs[ipAddress] = banInfo;
@@ -332,7 +333,46 @@ namespace RDPSecure.Services
         }
 
         /// <summary>
-        /// Cleans up expired bans and syncs with persisted data.
+        /// Refreshes the in-memory ban list from the database (read-only).
+        /// Used by the GUI in display-only mode when the service handles cleanup.
+        /// </summary>
+        public void ReloadBansFromDatabase()
+        {
+            try
+            {
+                var savedBans = SettingsManager.LoadBannedIPs();
+                var now = DateTime.UtcNow;
+
+                // Sync from DB to in-memory (keeps the more recent ban for each IP)
+                foreach (var ban in savedBans)
+                {
+                    _bannedIPs.AddOrUpdate(
+                        ban.Key,
+                        ban.Value,
+                        (key, existing) => ban.Value.BanTime > existing.BanTime ? ban.Value : existing
+                    );
+                }
+
+                // Remove expired from in-memory only (the service will handle DB cleanup)
+                var expiredKeys = _bannedIPs
+                    .Where(kvp => now >= kvp.Value.ExpiryTime)
+                    .Select(kvp => kvp.Key)
+                    .ToList();
+
+                foreach (var key in expiredKeys)
+                {
+                    _bannedIPs.TryRemove(key, out _);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Error reloading bans from database", ex);
+            }
+        }
+
+        /// <summary>
+        /// Cleans up expired bans, syncs with persisted data, and updates firewall rules.
+        /// Should only be called by the active monitor (service or app, not both).
         /// </summary>
         public void CleanupExpiredBans()
         {
@@ -374,9 +414,10 @@ namespace RDPSecure.Services
                     }
 
                     _logger.LogInformation($"Cleaned up {expiredKeys.Count} expired bans");
-                }
 
-                _firewallService.UpdateFirewallRules(_bannedIPs);
+                    // Only update firewall when bans actually changed
+                    _firewallService.UpdateFirewallRules(_bannedIPs);
+                }
             }
             catch (Exception ex)
             {
@@ -461,13 +502,13 @@ namespace RDPSecure.Services
                         var duration = TimeSpan.FromDays(_settings.PublicIPBanDays);
                         var banInfo = new BanInfo
                         {
-                            IPAddress = ipAddress,
                             BanTime = now,
                             Duration = duration,
                             ExpiryTime = now.Add(duration),
                             AttemptCount = 1,
                             Location = IsPrivateIP(ipAddress) ? "Private" : "Detecting..."
                         };
+                        banInfo.SetIPAddress(ipAddress);
                         _bannedIPs[ipAddress] = banInfo;
                         SaveBannedIPsAndUpdateFirewall();
 
@@ -635,6 +676,26 @@ namespace RDPSecure.Services
         {
             try
             {
+                // Event 4625 contains a "Source Network Address:" field with the attacker's IP.
+                // We must target that specific field rather than matching the first IP in the
+                // message, which could be the target machine's IP or another unrelated address.
+                var sourceNetworkMatch = System.Text.RegularExpressions.Regex.Match(
+                    logMessage,
+                    @"Source Network Address:\s+(\S+)",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase
+                );
+
+                if (sourceNetworkMatch.Success)
+                {
+                    string candidate = sourceNetworkMatch.Groups[1].Value.Trim();
+                    // Validate the extracted value is actually an IP address
+                    if (candidate != "-" && IPAddress.TryParse(candidate, out var parsedIP))
+                    {
+                        return parsedIP.ToString();
+                    }
+                }
+
+                // Fallback: try to find IP addresses in the message (for non-standard formats)
                 // IPv4 pattern
                 var ipv4Match = System.Text.RegularExpressions.Regex.Match(
                     logMessage,
@@ -643,7 +704,11 @@ namespace RDPSecure.Services
 
                 if (ipv4Match.Success)
                 {
-                    return ipv4Match.Value;
+                    // Validate the matched string is actually a valid IP
+                    if (IPAddress.TryParse(ipv4Match.Value, out _))
+                    {
+                        return ipv4Match.Value;
+                    }
                 }
 
                 // IPv6 pattern (handles full, compressed, and mixed notations)
@@ -699,21 +764,29 @@ namespace RDPSecure.Services
                 _ipListService.RefreshSettings();
                 var newSettings = _ipListService.GetSettings();
 
-                // If time window changed, we need to reinitialize the attempts manager
+                // If time window changed, we need to reinitialize the attempts manager.
+                // Use lock to prevent other threads from using _attemptsManager during swap.
                 if (newSettings.TimeWindow != _settings.TimeWindow)
                 {
-                    var oldManager = _attemptsManager;
-                    // Create new manager with new time window
-                    var newManager = new LoginAttemptsManager(_logger, newSettings.TimeWindow);
+                    lock (_settingsLock)
+                    {
+                        var oldManager = _attemptsManager;
+                        // Create new manager with new time window
+                        var newManager = new LoginAttemptsManager(_logger, newSettings.TimeWindow);
 
-                    // Update the field
-                    _attemptsManager = newManager;
+                        // Update the volatile field (visible to other threads immediately)
+                        _attemptsManager = newManager;
+                        _settings = newSettings;
 
-                    // Dispose old manager
-                    oldManager.Dispose();
+                        // Dispose old manager after the swap is complete
+                        oldManager.Dispose();
+                    }
+                }
+                else
+                {
+                    _settings = newSettings;
                 }
 
-                _settings = newSettings;
                 _logger.LogInformation("Settings updated successfully");
             }
             catch (Exception ex)

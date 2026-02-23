@@ -25,10 +25,11 @@ public partial class MainForm : Form
             InitializeComponent();
 
             // Set form and notification icons
+            // Note: Do NOT use 'using' here - the Icon must remain alive while the form uses it
             string iconPath = Path.Combine(Application.StartupPath, "shield.ico");
             if (File.Exists(iconPath))
             {
-                using var icon = new Icon(iconPath);
+                var icon = new Icon(iconPath);
                 this.Icon = icon;
                 notifyIconRDPSecure.Icon = icon;
             }
@@ -51,7 +52,19 @@ public partial class MainForm : Form
                 {
                     // Reload data from database to pick up changes from service
                     monitorService.ReloadAttempts();
-                    monitorService.CleanupExpiredBans();
+
+                    if (_isMonitoringActive)
+                    {
+                        // App is the active monitor: perform full cleanup with
+                        // firewall updates and DB writes
+                        monitorService.CleanupExpiredBans();
+                    }
+                    else
+                    {
+                        // Service is the active monitor: only read from DB for
+                        // display purposes, do NOT modify firewall or write bans
+                        monitorService.ReloadBansFromDatabase();
+                    }
 
                     // Update UI
                     lblRecentAttemptsCount.Text = monitorService.GetRecentAttemptsCount().ToString();
@@ -556,6 +569,7 @@ public partial class MainForm : Form
             _attemptsUpdateTimer?.Stop();
             _attemptsUpdateTimer?.Dispose();
             monitorService.StopMonitoring();
+            monitorService.Dispose();
         }
 
         base.OnFormClosing(e);

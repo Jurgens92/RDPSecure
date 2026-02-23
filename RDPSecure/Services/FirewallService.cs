@@ -25,10 +25,6 @@ namespace RDPSecure.Services
         {
             try
             {
-                // Remove existing rules
-                RemoveFirewallRule("IPv4");
-                RemoveFirewallRule("IPv6");
-
                 var now = DateTime.UtcNow;
                 var activeBans = bannedIPs
                     .Where(kvp => now < kvp.Value.ExpiryTime)
@@ -45,16 +41,24 @@ namespace RDPSecure.Services
                     .Select(b => b.Key)
                     .ToList();
 
-                // Create IPv4 rule if needed
+                // Create new rules BEFORE removing old ones to avoid a gap window
+                // where banned IPs are temporarily unblocked
                 if (ipv4Bans.Any())
                 {
                     CreateFirewallRule(ipv4Bans, "IPv4");
                 }
+                else
+                {
+                    RemoveFirewallRule("IPv4");
+                }
 
-                // Create IPv6 rule if needed
                 if (ipv6Bans.Any())
                 {
                     CreateFirewallRule(ipv6Bans, "IPv6");
+                }
+                else
+                {
+                    RemoveFirewallRule("IPv6");
                 }
             }
             catch (Exception ex)
@@ -69,6 +73,10 @@ namespace RDPSecure.Services
         private void CreateFirewallRule(List<string> ips, string version)
         {
             var ruleName = $"{FIREWALL_RULE_NAME}-{version}";
+            // Remove the old rule immediately before creating the new one
+            // to minimize the unprotected gap window
+            RemoveFirewallRule(version);
+
             var process = new Process
             {
                 StartInfo = new ProcessStartInfo
@@ -89,8 +97,12 @@ namespace RDPSecure.Services
             };
 
             process.Start();
+            // Read stderr asynchronously to avoid deadlock when both stdout and stderr
+            // buffers fill simultaneously during synchronous reads
+            string error = string.Empty;
+            process.ErrorDataReceived += (s, e) => { if (e.Data != null) error += e.Data; };
+            process.BeginErrorReadLine();
             string output = process.StandardOutput.ReadToEnd();
-            string error = process.StandardError.ReadToEnd();
             process.WaitForExit();
 
             if (process.ExitCode != 0)
